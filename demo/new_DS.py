@@ -1,116 +1,122 @@
 import numpy as np
+import imageio
+import cv2
+
+
+def draw_bbox_on_image(image, bbox, color=(0, 0, 255), thickness=2):
+    """
+    Draw a bounding box on the image using OpenCV.
+    
+    Parameters:
+        image (numpy.ndarray): The image on which to draw the bbox.
+        bbox (list): The bounding box defined as [center_x, center_y, width, height].
+        color (tuple): BGR tuple defining the color of the box.
+        thickness (int): Thickness of the box lines.
+
+    Returns:
+        numpy.ndarray: Image with drawn bbox.
+    """
+
+    cv2.rectangle(image, (bbox[0], bbox[1]), (bbox[2], bbox[3]), color, thickness)
+    return image
 
 def _costMAD(block1, block2):
     block1 = block1.astype(np.float32)
     block2 = block2.astype(np.float32)
     return np.mean(np.abs(block1 - block2))
 
-def _checkBounded(xval, yval, w, h, mbSize):
+def _checkBounded(xval, yval, w, h, blockW, blockH):
     if ((yval < 0) or
-       (yval + mbSize >= h) or
+       (yval + blockH >= h) or
        (xval < 0) or
-       (xval + mbSize >= w)):
+       (xval + blockW >= w)):
         return False
     else:
         return True
 
-def new_DS(imgP, imgI, mbSize, p):
-    # new Diamond Search method in BlockCache
-    #
-    # Input
-    #   imgP : The image for which we want to find motion vectors
-    #   imgI : The reference image
-    #   mbSize : Size of the macroblock
-    #   p : Search parameter  (read literature to find what this means)
-    #
-    # Ouput
-    #   motionVect : the motion vectors for each integral macroblock in imgP
-    #   DScomputations: The average number of points searched for a macroblock
-
-    h, w = imgP.shape
-
-    vectors = np.zeros((np.int(h / mbSize), np.int(w / mbSize), 2))
+def DS_for_bbox(imgCurr, imgPrev, bboxPrev):
+    """
+    Use the DS algorithm to find the most matching block in the current frame for the given detection box.
+    
+    Parameters:
+    imgPrev: Previous frame
+    imgCurr: Current frame
+    bbox: Detection box in the previous frame, format [x1, y1, x2, y2]
+    p: Search parameter
+    
+    Returns:
+    new_bbox: Coordinates of the most matching block in the current frame
+    """
+    h, w = imgCurr.shape[:2]
+    
+    x1, y1, x2, y2 = bboxPrev
+    blockW = x2 - x1
+    blockH = y2 - y1
+    
     costs = np.ones((9))*65537
-
-    L = np.floor(np.log2(p + 1))   # ?????
-
-    LDSP = []
-    LDSP.append([0, -2])
-    LDSP.append([-1, -1])
-    LDSP.append([1, -1])
-    LDSP.append([-2, 0])
-    LDSP.append([0, 0])
-    LDSP.append([2, 0])
-    LDSP.append([-1, 1])
-    LDSP.append([1, 1])
-    LDSP.append([0, 2])
-
-    SDSP = []
-    SDSP.append([0, -1])
-    SDSP.append([-1, 0])
-    SDSP.append([0, 0])
-    SDSP.append([1, 0])
-    SDSP.append([0, 1])
-
     computations = 0
+    bboxCurr = []
+    
+    # Initialize LDSP and SDSP
+    LDSP = [[0, -2], [-1, -1], [1, -1], [-2, 0], [0, 0], [2, 0], [-1, 1], [1, 1], [0, 2]]
+    SDSP = [[0, -1], [-1, 0], [0, 0], [1, 0], [0, 1]]
+       
+    # Initialize the search center point
+    xCenter = (x1 + x2) // 2
+    yCenter = (y1 + y2) // 2
+    
+    x = x1       # (x, y) large diamond center point
+    y = y1
+    
+    # start search
+    costs[4] = _costMAD(imgCurr[y1:y2, x1:x2], imgPrev[y1:y2, x1:x2])
+    cost = 0
+    point = 4
+    if costs[4] != 0:
+        computations += 1
+        for k in range(9):
+            yDiamond = y + LDSP[k][1]              # (xSearch, ySearch): points at the diamond
+            xDiamond = x + LDSP[k][0]
+            if not _checkBounded(xDiamond, yDiamond, w, h, blockW, blockH):
+                continue
+            if k == 4:
+                continue
+            costs[k] = _costMAD(imgCurr[yDiamond:yDiamond+blockH, xDiamond:xDiamond+blockW], imgPrev[y1:y2, x1:x2])
+            computations += 1
 
-    for i in range(0, h - mbSize + 1, mbSize):
-        for j in range(0, w - mbSize + 1, mbSize):
-            x = j
-            y = i
-            costs[4] = _costMAD(imgP[i:i + mbSize, j:j + mbSize], imgI[i:i + mbSize, j:j + mbSize])           # check large diamond center
-            cost = 0
-            point = 4
-            if costs[4] != 0:
-                computations += 1
-                for k in range(9):
-                    refBlkVer = y + LDSP[k][1]
-                    refBlkHor = x + LDSP[k][0]
-                    if not _checkBounded(refBlkHor, refBlkVer, w, h, mbSize):
-                        continue
-                    if k == 4:
-                        continue
-                    costs[k] = _costMAD(imgP[i:i + mbSize, j:j + mbSize], imgI[refBlkVer:refBlkVer + mbSize, refBlkHor:refBlkHor + mbSize])
-                    computations += 1
-
-                point = np.argmin(costs)
-                cost = costs[point]
-
-            SDSPFlag = 1            # SDSPFlag = 1, trigger SDSP
-            if point != 4:                
-                SDSPFlag = 0
-                cornerFlag = 1      # cornerFlag = 1: the MBD point is at the corner
-                if (np.abs(LDSP[point][0]) == np.abs(LDSP[point][1])):  # check if the MBD point is at the edge
-                    cornerFlag = 0
-                xLast = x
-                yLast = y
-                x = x + LDSP[point][0]
-                y = y + LDSP[point][1]
-                costs[:] = 65537
-                costs[4] = cost
+        point = np.argmin(costs)
+        cost = costs[point]
+    
+        SDSPFlag = 1            # SDSPFlag = 1, trigger SDSP
+        if point != 4:                
+            SDSPFlag = 0
+            cornerFlag = 1      # cornerFlag = 1: the MBD point is at the corner
+            if (np.abs(LDSP[point][0]) == np.abs(LDSP[point][1])):  # check if the MBD point is at the edge
+                cornerFlag = 0
+            xLast = x
+            yLast = y
+            x += LDSP[point][0]
+            y += LDSP[point][1]
+            costs[:] = 65537
+            costs[4] = cost
 
             while SDSPFlag == 0:       # start iteration until the SDSP is triggered
                 if cornerFlag == 1:    # next MBD point is at the corner
                     for k in range(9):
-                        refBlkVer = y + LDSP[k][1]
-                        refBlkHor = x + LDSP[k][0]
-                        if not _checkBounded(refBlkHor, refBlkVer, w, h, mbSize):
+                        yDiamond = y + LDSP[k][1]
+                        xDiamond = x + LDSP[k][0]
+                        if not _checkBounded(xDiamond, yDiamond, w, h, blockW, blockH):
                             continue
                         if k == 4:
                             continue
 
-                        if ((refBlkHor >= xLast - 1) and   # avoid redundant computations from the last search
-                           (refBlkHor <= xLast + 1) and
-                           (refBlkVer >= yLast - 1) and
-                           (refBlkVer <= yLast + 1)):
-                            continue
-                        elif ((refBlkHor < j-p) or         # check if the search goes beyond the search region
-                              (refBlkHor > j+p) or
-                              (refBlkVer < i-p) or
-                              (refBlkVer > i+p)):
+                        if ((xDiamond >= xLast - 1) and   # avoid redundant computations from the last search
+                           (xDiamond <= xLast + 1) and
+                           (yDiamond >= yLast - 1) and
+                           (yDiamond <= yLast + 1)):
                             continue
                         else:
-                            costs[k] = _costMAD(imgP[i:i + mbSize, j:j + mbSize], imgI[refBlkVer:refBlkVer + mbSize, refBlkHor:refBlkHor + mbSize])
+                            costs[k] = _costMAD(imgCurr[yDiamond:yDiamond+blockH, xDiamond:xDiamond+blockW], imgPrev[y1:y2, x1:x2])
                             computations += 1
                 else:                                # next MBD point is at the edge
                     lst = []
@@ -124,17 +130,12 @@ def new_DS(imgP, imgI, mbSize, p):
                         lst = np.array([5, 7, 8])
 
                     for idx in lst:
-                        refBlkVer = y + LDSP[idx][1]
-                        refBlkHor = x + LDSP[idx][0]
-                        if not _checkBounded(refBlkHor, refBlkVer, w, h, mbSize):
-                            continue
-                        elif ((refBlkHor < j - p) or
-                              (refBlkHor > j + p) or
-                              (refBlkVer < i - p) or
-                              (refBlkVer > i + p)):
+                        yDiamond = y + LDSP[idx][1]
+                        xDiamond = x + LDSP[idx][0]
+                        if not _checkBounded(xDiamond, yDiamond, w, h, blockW, blockH):
                             continue
                         else:
-                            costs[idx] = _costMAD(imgP[i:i + mbSize, j:j + mbSize], imgI[refBlkVer:refBlkVer + mbSize, refBlkHor:refBlkHor + mbSize])
+                            costs[idx] = _costMAD(imgCurr[yDiamond:yDiamond+blockH, xDiamond:xDiamond+blockW], imgPrev[y1:y2, x1:x2])
                             computations += 1
 
                 point = np.argmin(costs)
@@ -156,21 +157,16 @@ def new_DS(imgP, imgI, mbSize, p):
             costs[2] = cost
 
             for k in range(5):                # trigger SDSP
-                refBlkVer = y + SDSP[k][1]
-                refBlkHor = x + SDSP[k][0]
+                yDiamond = y + SDSP[k][1]
+                xDiamond = x + SDSP[k][0]
 
-                if not _checkBounded(refBlkHor, refBlkVer, w, h, mbSize):
-                    continue
-                elif ((refBlkHor < j - p) or
-                      (refBlkHor > j + p) or
-                      (refBlkVer < i - p) or
-                      (refBlkVer > i + p)):
+                if not _checkBounded(xDiamond, yDiamond, w, h, blockW, blockH):
                     continue
 
                 if k == 2:
                     continue
 
-                costs[k] = _costMAD(imgP[i:i + mbSize, j:j + mbSize], imgI[refBlkVer:refBlkVer + mbSize, refBlkHor:refBlkHor + mbSize])
+                costs[k] = _costMAD(imgCurr[yDiamond:yDiamond+blockH, xDiamond:xDiamond+blockW], imgPrev[y1:y2, x1:x2])
                 computations += 1
 
             point = 2
@@ -181,9 +177,30 @@ def new_DS(imgP, imgI, mbSize, p):
 
             x += SDSP[point][0]
             y += SDSP[point][1]
-
-            vectors[np.int(i / mbSize), np.int(j / mbSize), :] = [x - j, y - i]
-
+            
             costs[:] = 65537
 
-    return vectors, computations / ((h * w) / mbSize**2)
+            bboxCurr = [x, y, x+blockW, y+blockH]
+            
+    return bboxCurr, computations / ((h * w) / (blockW*blockH))
+        
+        
+image1 = imageio.imread("000010_cropped.jpg")
+image2 = imageio.imread("000011_cropped.jpg")
+height, width = image2.shape[:2]
+
+target_bbox = [39, 34, 122, 111]
+
+# Draw the bbox on image1
+image1_with_bbox = draw_bbox_on_image(image1, target_bbox)
+
+# Save the image1 with bbox
+cv2.imwrite('origin.jpg', image1_with_bbox)
+
+# 使用DS算法找到新的目标框位置
+new_bbox, _ = DS_for_bbox(image1, image2, target_bbox)
+print('new box: ', new_bbox)
+
+# Use the function to draw the bbox on image2
+result_image = draw_bbox_on_image(image2, new_bbox)
+cv2.imwrite('result.jpg', result_image)  # Change the path to where you want to save the result.
