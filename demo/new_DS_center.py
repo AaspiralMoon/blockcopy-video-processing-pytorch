@@ -26,13 +26,16 @@ def _costMAD(block1, block2):
     return np.mean(np.abs(block1 - block2))
 
 def _checkBounded(xval, yval, w, h, blockW, blockH):
-    if ((yval < 0) or
-       (yval + blockH >= h) or
-       (xval < 0) or
-       (xval + blockW >= w)):
+    left_bound = xval - blockW // 2
+    right_bound = xval + blockW - blockW // 2
+    top_bound = yval - blockH // 2
+    bottom_bound = yval + blockH - blockH // 2
+
+    if (left_bound < 0 or right_bound >= w or top_bound < 0 or bottom_bound >= h):
         return False
     else:
         return True
+
 
 def DS_for_bbox(imgCurr, imgPrev, bboxPrev):
     """
@@ -61,12 +64,12 @@ def DS_for_bbox(imgCurr, imgPrev, bboxPrev):
     LDSP = [[0, -2], [-1, -1], [1, -1], [-2, 0], [0, 0], [2, 0], [-1, 1], [1, 1], [0, 2]]
     SDSP = [[0, -1], [-1, 0], [0, 0], [1, 0], [0, 1]]
        
-    # # Initialize the search center point
-    # xCenter = (x1 + x2) // 2
-    # yCenter = (y1 + y2) // 2
+    # Initialize the search center point
+    xCenter = (x1 + x2) // 2
+    yCenter = (y1 + y2) // 2
     
-    x = x1       # (x, y) large diamond center point
-    y = y1
+    x = xCenter       # (x, y) large diamond center point
+    y = yCenter
     
     # start search
     costs[4] = _costMAD(imgCurr[y1:y2, x1:x2], imgPrev[y1:y2, x1:x2])
@@ -75,13 +78,16 @@ def DS_for_bbox(imgCurr, imgPrev, bboxPrev):
     if costs[4] != 0:
         computations += 1
         for k in range(9):
-            yDiamond = y + LDSP[k][1]              # (xSearch, ySearch): points at the diamond
+            yDiamond = y + LDSP[k][1]              # (xDiamond, yDiamond): points at the diamond
             xDiamond = x + LDSP[k][0]
             if not _checkBounded(xDiamond, yDiamond, w, h, blockW, blockH):
                 continue
             if k == 4:
                 continue
-            costs[k] = _costMAD(imgCurr[yDiamond:yDiamond+blockH, xDiamond:xDiamond+blockW], imgPrev[y1:y2, x1:x2])
+            costs[k] = _costMAD(imgCurr[yDiamond - blockH // 2 : yDiamond + blockH - blockH // 2, 
+                                xDiamond - blockW // 2 : xDiamond + blockW - blockW // 2], 
+                                imgPrev[yCenter - blockH // 2 : yCenter + blockH - blockH // 2, 
+                                xCenter - blockW // 2 : xCenter + blockW - blockW // 2])
             computations += 1
 
         point = np.argmin(costs)
@@ -116,7 +122,10 @@ def DS_for_bbox(imgCurr, imgPrev, bboxPrev):
                            (yDiamond <= yLast + 1)):
                             continue
                         else:
-                            costs[k] = _costMAD(imgCurr[yDiamond:yDiamond+blockH, xDiamond:xDiamond+blockW], imgPrev[y1:y2, x1:x2])
+                            costs[k] = _costMAD(imgCurr[yDiamond - blockH // 2 : yDiamond + blockH - blockH // 2, 
+                                                 xDiamond - blockW // 2 : xDiamond + blockW - blockW // 2], 
+                                                 imgPrev[yCenter - blockH // 2 : yCenter + blockH - blockH // 2, 
+                                                 xCenter - blockW // 2 : xCenter + blockW - blockW // 2])
                             computations += 1
                 else:                                # next MBD point is at the edge
                     lst = []
@@ -135,7 +144,10 @@ def DS_for_bbox(imgCurr, imgPrev, bboxPrev):
                         if not _checkBounded(xDiamond, yDiamond, w, h, blockW, blockH):
                             continue
                         else:
-                            costs[idx] = _costMAD(imgCurr[yDiamond:yDiamond+blockH, xDiamond:xDiamond+blockW], imgPrev[y1:y2, x1:x2])
+                            costs[idx] = _costMAD(imgCurr[yDiamond - blockH // 2 : yDiamond + blockH - blockH // 2, 
+                                                 xDiamond - blockW // 2 : xDiamond + blockW - blockW // 2], 
+                                                 imgPrev[yCenter - blockH // 2 : yCenter + blockH - blockH // 2, 
+                                                 xCenter - blockW // 2 : xCenter + blockW - blockW // 2])
                             computations += 1
 
                 point = np.argmin(costs)
@@ -166,7 +178,10 @@ def DS_for_bbox(imgCurr, imgPrev, bboxPrev):
                 if k == 2:
                     continue
 
-                costs[k] = _costMAD(imgCurr[yDiamond:yDiamond+blockH, xDiamond:xDiamond+blockW], imgPrev[y1:y2, x1:x2])
+                costs[k] = _costMAD(imgCurr[yDiamond - blockH // 2 : yDiamond + blockH - blockH // 2, 
+                                            xDiamond - blockW // 2 : xDiamond + blockW - blockW // 2], 
+                                            imgPrev[yCenter - blockH // 2 : yCenter + blockH - blockH // 2, 
+                                            xCenter - blockW // 2 : xCenter + blockW - blockW // 2])
                 computations += 1
 
             point = 2
@@ -180,7 +195,7 @@ def DS_for_bbox(imgCurr, imgPrev, bboxPrev):
             
             costs[:] = 65537
 
-            bboxCurr = [x, y, x+blockW, y+blockH]
+            bboxCurr = [x - blockW // 2, y - blockH // 2, x + blockW - blockW // 2, y + blockH - blockH // 2]
             print(computations)
     return bboxCurr, computations / ((h * w) / (blockW*blockH))
         
