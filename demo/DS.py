@@ -42,7 +42,7 @@ def _DS(imgP, imgI, mbSize, p):
         for j in range(0, w - mbSize + 1, mbSize):
             x = j
             y = i
-            costs[4] = _costMAD(imgP[i:i + mbSize, j:j + mbSize], imgI[i:i + mbSize, j:j + mbSize])           # check large diamond center
+            costs[4] = _costMAD(imgP[i:i + mbSize, j:j + mbSize], imgI[i:i + mbSize, j:j + mbSize])
             cost = 0
             point = 4
             if costs[4] != 0:
@@ -60,11 +60,11 @@ def _DS(imgP, imgI, mbSize, p):
                 point = np.argmin(costs)
                 cost = costs[point]
 
-            SDSPFlag = 1            # SDSPFlag = 1, trigger SDSP
-            if point != 4:                
+            SDSPFlag = 1
+            if point != 4:
                 SDSPFlag = 0
-                cornerFlag = 1      # cornerFlag = 1: the MBD point is at the corner
-                if (np.abs(LDSP[point][0]) == np.abs(LDSP[point][1])):  # check if the MBD point is at the edge
+                cornerFlag = 1
+                if (np.abs(LDSP[point][0]) == np.abs(LDSP[point][1])):
                     cornerFlag = 0
                 xLast = x
                 yLast = y
@@ -73,8 +73,8 @@ def _DS(imgP, imgI, mbSize, p):
                 costs[:] = 65537
                 costs[4] = cost
 
-            while SDSPFlag == 0:       # start iteration until the SDSP is triggered
-                if cornerFlag == 1:    # next MBD point is at the corner
+            while SDSPFlag == 0:
+                if cornerFlag == 1:
                     for k in range(9):
                         refBlkVer = y + LDSP[k][1]
                         refBlkHor = x + LDSP[k][0]
@@ -83,12 +83,12 @@ def _DS(imgP, imgI, mbSize, p):
                         if k == 4:
                             continue
 
-                        if ((refBlkHor >= xLast - 1) and   # avoid redundant computations from the last search
+                        if ((refBlkHor >= xLast - 1) and
                            (refBlkHor <= xLast + 1) and
                            (refBlkVer >= yLast - 1) and
                            (refBlkVer <= yLast + 1)):
                             continue
-                        elif ((refBlkHor < j-p) or         # check if the search goes beyond the search region
+                        elif ((refBlkHor < j-p) or
                               (refBlkHor > j+p) or
                               (refBlkVer < i-p) or
                               (refBlkVer > i+p)):
@@ -96,9 +96,9 @@ def _DS(imgP, imgI, mbSize, p):
                         else:
                             costs[k] = _costMAD(imgP[i:i + mbSize, j:j + mbSize], imgI[refBlkVer:refBlkVer + mbSize, refBlkHor:refBlkHor + mbSize])
                             computations += 1
-                else:                                # next MBD point is at the edge
+                else:
                     lst = []
-                    if point == 1:                   # the point positions that needs computation
+                    if point == 1:
                         lst = np.array([0, 1, 3])
                     elif point == 2:
                         lst = np.array([0, 2, 5])
@@ -139,7 +139,7 @@ def _DS(imgP, imgI, mbSize, p):
             costs[:] = 65537
             costs[2] = cost
 
-            for k in range(5):                # trigger SDSP
+            for k in range(5):
                 refBlkVer = y + SDSP[k][1]
                 refBlkHor = x + SDSP[k][0]
 
