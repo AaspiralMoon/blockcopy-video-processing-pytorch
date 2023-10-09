@@ -13,7 +13,7 @@ from mmdet.core.my_mmcv.runner.hooks.mean_teacher_optimizer import OptimizerHook
 from mmcv.runner.hooks import (Hook, LrUpdaterHook, CheckpointHook, IterTimerHook, lr_updater)
 from mmcv.runner.checkpoint import load_checkpoint, save_checkpoint
 from mmcv.runner.priority import get_priority
-from mmcv.runner.utils import get_dist_info, get_host_info, get_time_str, obj_from_dict
+from mmcv.runner import get_dist_info, get_host_info, get_time_str, obj_from_dict
 from collections import OrderedDict
 
 class Mean_teacher_Runner(Runner):

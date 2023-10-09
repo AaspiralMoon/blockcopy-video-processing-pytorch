@@ -17,7 +17,7 @@ def create_gif_from_folder(folder_path, output_file, duration):
     imageio.mimsave(output_file, images, duration=duration)
 
 # Example usage:
-folder_path = "/nfs/u40/xur86/projects/blockcopy/demo/results/highway"  # Replace with the path to your folder
-output_file = "highway.gif"
+folder_path = "/nfs/u40/xur86/projects/blockcopy/demo/results/Bellevue_150th_Eastgate__2017-09-10_18-08-24_motion_compensation"  # Replace with the path to your folder
+output_file = "Bellevue_150th_Eastgate__2017-09-10_18-08-24_motion_compensation.gif"
 duration = 0.1  # Duration for each frame in seconds
 create_gif_from_folder(folder_path, output_file, duration)

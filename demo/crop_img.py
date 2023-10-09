@@ -20,5 +20,5 @@ def extract_region_from_image(image_path, x1, y1, x2, y2, output_path):
     cv2.imwrite(output_path, region)
 
 
-extract_region_from_image('/nfs/u40/xur86/projects/yolov5/data/images/Bellevue_150th_Eastgate__2017-09-10_18-08-24/000041.jpg', 771, 334, 1160, 611, '000041_cropped.jpg')
+extract_region_from_image('/nfs/u40/xur86/projects/yolov5/data/images/highway/000010.jpg', 452, 534, 645, 670, '000010_cropped.jpg')
 
