@@ -57,7 +57,7 @@ test_cfg = dict(
 # dataset settings
 dataset_type = 'CocoCSPORIDataset'
 data_root = 'datasets/CityPersons/'
-img_root = '/nfs/u40/xur86/datasets/cityscapes/leftImg8bit_sequence'
+img_root = '/home/wiser-renjie/remote_datasets/cityscapes/leftImg8bit_sequence'
 INF = 1e8
 img_norm_cfg = dict(
     mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)

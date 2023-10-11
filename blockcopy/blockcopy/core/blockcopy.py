@@ -86,6 +86,7 @@ class BlockCopyModel(nn.Module):
             if self.policy is not None:
                 train_policy = self.clip_length % self.train_interval == 0
                 self.policy_meta = self.policy.optim(self.policy_meta, train=train_policy)
+                
         return out
 
 

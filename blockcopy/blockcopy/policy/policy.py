@@ -31,6 +31,12 @@ def build_policy_from_settings(settings: dict) -> None:
             verbose=settings["block_policy_verbose"],
             quantize_number_exec=quantize_number_exec,
         )
+    if policy_name == "myrandom":
+        return myPolicyRandom(
+            block_size=settings["block_size"],
+            verbose=settings["block_policy_verbose"],
+            quantize_number_exec=quantize_number_exec,
+        )
     if policy_name.startswith("rl_"):  # reinforcement learning policy
         net = build_policy_net_from_settings(settings)
         optimizer = build_policy_optimizer_from_settings(settings, net)
@@ -214,6 +220,41 @@ class PolicyRandom(Policy):
         policy_meta["grid"] = grid
         policy_meta = self.stats.add_policy_meta(policy_meta)
         return policy_meta
+
+class myPolicyRandom(Policy):                # can specify execution percentage: N%
+    """
+    Execute random blocks (N% randomly executed)
+    """
+    def forward(self, policy_meta: dict) -> dict:
+        self.execution_percentage = 0.35                        # define execution percentage
+        frame = policy_meta["inputs"]
+        N, C, H, W = frame.shape
+        G = (H // self.block_size, W // self.block_size)
+        assert H % self.block_size == 0, f"input height ({H}) not a multiple of block size {self.block_size}!"
+        assert W % self.block_size == 0, f"input width  ({W}) not a multiple of block size {self.block_size}!"
+
+        if policy_meta.get("outputs_prev", None) is None:
+            grid = torch.ones((N, 1, G[0], G[1]), device=policy_meta["inputs"].device).type(torch.bool)
+        else:
+            # grid = (torch.randn((N, 1, G[0], G[1]), device=policy_meta["inputs"].device) > (1 - self.execution_percentage)).type(torch.bool)
+            num_blocks = G[0] * G[1]
+            num_exec_blocks = int(num_blocks * self.execution_percentage)
+
+            # Initialize grid with zeros
+            grid = torch.zeros((N, 1, G[0], G[1]), device=policy_meta["inputs"].device, dtype=torch.bool)
+
+            # Randomly select blocks to be executed
+            for i in range(N):
+                indices = torch.multinomial(torch.ones(num_blocks), num_exec_blocks, replacement=False)
+                grid[i, 0, indices // G[1], indices % G[1]] = 1
+
+        # grid = self.quantize_number_exec_grid(grid)
+
+        policy_meta["grid"] = grid
+        policy_meta = self.stats.add_policy_meta(policy_meta)
+        print(policy_meta["num_exec"])
+        return policy_meta
+
 
 
 class PolicyTrainRL(Policy, metaclass=abc.ABCMeta):

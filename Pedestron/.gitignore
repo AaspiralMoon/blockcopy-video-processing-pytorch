@@ -1,4 +1,4 @@
-OUTPUT/
+output/*
 checkpoints/*
 results/*
 

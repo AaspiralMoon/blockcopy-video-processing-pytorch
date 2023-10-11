@@ -58,7 +58,7 @@ test_cfg = dict(
 # dataset settings
 dataset_type = 'CocoCSPORIClipDataset'
 data_root = 'datasets/CityPersons'
-img_root = '/nfs/u40/xur86/datasets/cityscapes/leftImg8bit_sequence'
+img_root = '/home/wiser-renjie/remote_datasets/cityscapes/leftImg8bit_sequence'
 data_root_vid = ''
 INF = 1e8
 
