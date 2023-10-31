@@ -1,3 +1,10 @@
+*.jpg
+*.png
+*.gif
+*.pt
+/results/
+/cityscapes/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
