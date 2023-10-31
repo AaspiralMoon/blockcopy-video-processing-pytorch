@@ -55,8 +55,6 @@ if __name__ == "__main__":
         for j, box in enumerate(prev_box_list):
             ref_block = imgRef[ref_box_list[j][1]:ref_box_list[j][3], ref_box_list[j][0]:ref_box_list[j][2]] 
             new_box, _ = DS_for_bbox(imgCurr, ref_block, box)
-            if not new_box:
-                new_box = box
             cv2.rectangle(imgCurrCopy, (new_box[0], new_box[1]), (new_box[2], new_box[3]), color=(0, 0, 255), thickness=2)
             new_box_list.append(new_box)
         cv2.imwrite('results/Bellevue_150th_Eastgate__2017-09-10_18-08-24/{}'.format(image_list[i]), imgCurrCopy)

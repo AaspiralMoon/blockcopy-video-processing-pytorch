@@ -1,10 +1,15 @@
 import cv2
+import os
 import numpy as np
 import os.path as osp
 from new_DS_center import DS_for_bbox
 from online_yolov5 import yolov5_inference
 import time
 
+def mkdir_if_missing(d):
+    if not osp.exists(d):
+        os.makedirs(d)
+        
 def transform_box(x, y, w, h, img_width, img_height):
     # Convert center x, y coordinates to absolute form
     abs_center_x = x * img_width
@@ -34,9 +39,11 @@ def transform_boxes(boxes, img_width, img_height):
     return transformed_boxes
 
 if __name__ == "__main__":
-    image_list = ["{:06d}.jpg".format(i) for i in range(51, 111)]
-    image_path = "/nfs/u40/xur86/projects/yolov5/data/images/Bellevue_NE8th__2017-09-10_18-08-23"   
-    interval = 5                                # every N frames, trigger the detector to generate boxes
+    image_list = ["{:06d}.jpg".format(i) for i in range(130, 181)]
+    image_path = "/home/wiser-renjie/remote_datasets/MOT17/MOT17-09-SDP/img1"   
+    save_path = 'results/MOT17-09-SDP'
+    mkdir_if_missing(save_path)
+    interval = 20                                # every N frames, trigger the detector to generate boxes
     
     for i in range(0, len(image_list)):
         new_box_list = []
@@ -53,11 +60,9 @@ if __name__ == "__main__":
             for j, prev_box in enumerate(prev_box_list):
                 ref_block = ref_img[ref_box_list[j][1]:ref_box_list[j][3], ref_box_list[j][0]:ref_box_list[j][2]] 
                 new_box, _ = DS_for_bbox(imgCurr, ref_block, prev_box)
-                if not new_box:
-                    new_box = prev_box
                 new_box_list.append(new_box)
             for new_box in new_box_list:
                 cv2.rectangle(imgCurrCopy, (new_box[0], new_box[1]), (new_box[2], new_box[3]), color=(0, 0, 255), thickness=2)
             prev_box_list = new_box_list
-        cv2.imwrite('results/Bellevue_NE8th__2017-09-10_18-08-23/{}'.format(image_list[i]), imgCurrCopy)
+        cv2.imwrite(osp.join(save_path, '{}'.format(image_list[i])), imgCurrCopy)
         

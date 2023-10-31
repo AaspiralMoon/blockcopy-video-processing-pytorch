@@ -226,7 +226,7 @@ class myPolicyRandom(Policy):                # can specify execution percentage:
     Execute random blocks (N% randomly executed)
     """
     def forward(self, policy_meta: dict) -> dict:
-        self.execution_percentage = 0.35                        # define execution percentage
+        self.execution_percentage = 0.7                       # define execution percentage
         frame = policy_meta["inputs"]
         N, C, H, W = frame.shape
         G = (H // self.block_size, W // self.block_size)
@@ -252,7 +252,7 @@ class myPolicyRandom(Policy):                # can specify execution percentage:
 
         policy_meta["grid"] = grid
         policy_meta = self.stats.add_policy_meta(policy_meta)
-        print(policy_meta["num_exec"])
+        print('Executed blocks: ', policy_meta["num_exec"])
         return policy_meta
 
 

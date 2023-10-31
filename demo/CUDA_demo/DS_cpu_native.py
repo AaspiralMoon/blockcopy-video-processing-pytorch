@@ -1,23 +1,37 @@
 import numpy as np
 import cv2
+import os
 import time
+import os.path as osp
+from multiprocessing import Pool, cpu_count
 
-def draw_bbox_on_image(image, bbox, color=(0, 0, 255), thickness=2):
-    """
-    Draw a bounding box on the image using OpenCV.
+def transform_box(x, y, w, h, img_width, img_height):
+    # Convert center x, y coordinates to absolute form
+    abs_center_x = x * img_width
+    abs_center_y = y * img_height
     
-    Parameters:
-        image (numpy.ndarray): The image on which to draw the bbox.
-        bbox (list): The bounding box defined as [center_x, center_y, width, height].
-        color (tuple): BGR tuple defining the color of the box.
-        thickness (int): Thickness of the box lines.
+    # Convert width and height to absolute form
+    abs_width = w * img_width
+    abs_height = h * img_height
+    
+    # Calculate the top-left and bottom-right corner coordinates
+    x1 = abs_center_x - (abs_width / 2)
+    y1 = abs_center_y - (abs_height / 2)
+    x2 = abs_center_x + (abs_width / 2)
+    y2 = abs_center_y + (abs_height / 2)
+    
+    return np.int32(x1), np.int32(y1), np.int32(x2), np.int32(y2)
 
-    Returns:
-        numpy.ndarray: Image with drawn bbox.
-    """
+def transform_boxes(boxes, img_width, img_height):
+    transformed_boxes = []
+    
+    for box in boxes:
+        _, x, y, w, h = box
+        x1, y1, x2, y2 = transform_box(x, y, w, h, img_width, img_height)
+        transformed_boxes.append([x1, y1, x2, y2])
+    
+    return transformed_boxes
 
-    cv2.rectangle(image, (bbox[0], bbox[1]), (bbox[2], bbox[3]), color, thickness)
-    return image
 
 def _costMAD(block1, block2):
     block1 = block1.astype(np.float32)
@@ -180,34 +194,32 @@ def DS_for_bbox(imgCurr, ref_block, prev_bbox):
     costs[:] = 65537
 
     bboxCurr = [x, y, x+blockW, y+blockH]
-    print('Computation: ', computations)
     return bboxCurr, computations / ((h * w) / (blockW*blockH))
-        
-if __name__ == "__main__":  
-    ref_image = cv2.imread("/home/wiser-renjie/remote_datasets/yolov5_images/highway/000010.jpg")
-    target_image = cv2.imread("/home/wiser-renjie/remote_datasets/yolov5_images/highway/000014.jpg")
-    height, width = target_image.shape[:2]
 
-    ref_bbox = [237, 421, 325, 473]             # reference box in the first frame
+
+if __name__ == "__main__":
+    image_list = ["{:06d}.jpg".format(i) for i in range(1, 60)]
+    image_path = "/home/wiser-renjie/remote_datasets/yolov5_images/Bellevue_150th_Eastgate__2017-09-10_18-08-24"
+    example_image = cv2.imread(osp.join(image_path, image_list[0]))
+    img_height, img_width = example_image.shape[:2]
+
+    boxes_in_the_first_frame = np.loadtxt('/home/wiser-renjie/projects/blockcopy/demo/CUDA_demo/000001.txt')
+
+    imgRef = cv2.imread(osp.join(image_path, image_list[0]))
+    ref_box_list = transform_boxes(boxes_in_the_first_frame, img_width, img_height)
+    print(ref_box_list)
     
-    prev_bbox = [249, 413, 337, 465]
-
-    ref_block = ref_image[ref_bbox[1]:ref_bbox[3], ref_bbox[0]:ref_bbox[2]]       # object region
-    init_point = (ref_bbox[0], ref_bbox[1])
+    prev_box_list = ref_box_list
     
-    # Draw the bbox on image1
-    image1_with_bbox = draw_bbox_on_image(ref_image, ref_bbox)
-
-    # Save the image1 with bbox
-    # cv2.imwrite('origin.jpg', image1_with_bbox)
-
-    # 使用DS算法找到新的目标框位置
-    t1 = time.time()
-    new_bbox, _ = DS_for_bbox(target_image, ref_block, prev_bbox)
-    t2 = time.time()
-    print('new box: ', new_bbox)
-    print('time: {} ms'.format((t2-t1)*1000))
-
-    # Use the function to draw the bbox on image2
-    result_image = draw_bbox_on_image(target_image, new_bbox)
-    # cv2.imwrite('result.jpg', result_image)  # Change the path to where you want to save the result.
+    for i in range(1, len(image_list)-1):
+        new_box_list = []
+        imgCurr = cv2.imread(osp.join(image_path, image_list[i]))
+        imgCurrCopy = imgCurr.copy()
+        t1 = time.time()
+        for j, box in enumerate(prev_box_list):
+            ref_block = imgRef[ref_box_list[j][1]:ref_box_list[j][3], ref_box_list[j][0]:ref_box_list[j][2]] 
+            new_box, _ = DS_for_bbox(imgCurr, ref_block, box)
+            new_box_list.append(new_box)
+        t2 = time.time()
+        print('Frame: {}, Time: {} ms'.format(i+1, (t2-t1)*1000))
+        prev_box_list = new_box_list

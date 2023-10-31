@@ -1,6 +1,7 @@
 import numpy as np
 import cv2
 import time
+from numba import njit
 
 def draw_bbox_on_image(image, bbox, color=(0, 0, 255), thickness=2):
     """
@@ -19,11 +20,13 @@ def draw_bbox_on_image(image, bbox, color=(0, 0, 255), thickness=2):
     cv2.rectangle(image, (bbox[0], bbox[1]), (bbox[2], bbox[3]), color, thickness)
     return image
 
+@njit
 def _costMAD(block1, block2):
     block1 = block1.astype(np.float32)
     block2 = block2.astype(np.float32)
     return np.mean(np.abs(block1 - block2))
 
+@njit
 def _checkBounded(xval, yval, w, h, blockW, blockH):
     if ((yval < 0) or
        (yval + blockH >= h) or
@@ -33,6 +36,7 @@ def _checkBounded(xval, yval, w, h, blockW, blockH):
     else:
         return True
 
+@njit
 def DS_for_bbox(imgCurr, ref_block, prev_bbox):
     """
     Use the DS algorithm to find the most matching block in the current frame for the given detection box.
@@ -54,15 +58,11 @@ def DS_for_bbox(imgCurr, ref_block, prev_bbox):
     
     costs = np.ones((9))*65537
     computations = 0
-    bboxCurr = []
+    bboxCurr = np.zeros((4,), dtype=np.float32)
     
     # Initialize LDSP and SDSP
-    LDSP = [[0, -2], [-1, -1], [1, -1], [-2, 0], [0, 0], [2, 0], [-1, 1], [1, 1], [0, 2]]
-    SDSP = [[0, -1], [-1, 0], [0, 0], [1, 0], [0, 1]]
-       
-    # # Initialize the search center point
-    # xCenter = (x1 + x2) // 2
-    # yCenter = (y1 + y2) // 2
+    LDSP = np.array([[0, -2], [-1, -1], [1, -1], [-2, 0], [0, 0], [2, 0], [-1, 1], [1, 1], [0, 2]], dtype=np.int32)
+    SDSP = np.array([[0, -1], [-1, 0], [0, 0], [1, 0], [0, 1]], dtype=np.int32)
     
     x = x1       # (x, y) large diamond center point
     y = y1
@@ -118,15 +118,15 @@ def DS_for_bbox(imgCurr, ref_block, prev_bbox):
                     costs[k] = _costMAD(imgCurr[yDiamond:yDiamond+blockH, xDiamond:xDiamond+blockW], ref_block)
                     computations += 1
         else:                                # next MBD point is at the edge
-            lst = []
+            lst = np.empty(3, dtype=np.int32)
             if point == 1:                   # the point positions that needs computation
-                lst = np.array([0, 1, 3])
+                lst = np.array([0, 1, 3], dtype=np.int32)
             elif point == 2:
-                lst = np.array([0, 2, 5])
+                lst = np.array([0, 2, 5], dtype=np.int32)
             elif point == 6:
-                lst = np.array([3, 6, 8])
+                lst = np.array([3, 6, 8], dtype=np.int32)
             elif point == 7:
-                lst = np.array([5, 7, 8])
+                lst = np.array([5, 7, 8], dtype=np.int32)
 
             for idx in lst:
                 yDiamond = y + LDSP[idx][1]
@@ -202,6 +202,8 @@ if __name__ == "__main__":
     # cv2.imwrite('origin.jpg', image1_with_bbox)
 
     # 使用DS算法找到新的目标框位置
+    for i in range(100):
+        _, _ = DS_for_bbox(target_image, ref_block, prev_bbox)
     t1 = time.time()
     new_bbox, _ = DS_for_bbox(target_image, ref_block, prev_bbox)
     t2 = time.time()

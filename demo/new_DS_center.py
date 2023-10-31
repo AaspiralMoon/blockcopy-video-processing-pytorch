@@ -1,5 +1,5 @@
 import numpy as np
-import pandas as pd
+
 import cv2
 import time
 
@@ -120,11 +120,69 @@ def DS_for_bbox(imgCurr, ref_block, prev_bbox):
         point = np.argmin(costs)
         cost = costs[point]
     
-        SDSPFlag = 1            # SDSPFlag = 1, trigger SDSP
-        if point != 4:                
+    SDSPFlag = 1            # SDSPFlag = 1, trigger SDSP
+    if point != 4:                
+        SDSPFlag = 0
+        cornerFlag = 1      # cornerFlag = 1: the MBD point is at the corner
+        if (np.abs(LDSP[point][0]) == np.abs(LDSP[point][1])):  # check if the MBD point is at the edge
+            cornerFlag = 0
+        xLast = x
+        yLast = y
+        x += LDSP[point][0]
+        y += LDSP[point][1]
+        costs[:] = 65537
+        costs[4] = cost
+
+    while SDSPFlag == 0:       # start iteration until the SDSP is triggered
+        if cornerFlag == 1:    # next MBD point is at the corner
+            for k in range(9):
+                yDiamond = y + LDSP[k][1]
+                xDiamond = x + LDSP[k][0]
+                if not _checkBounded(xDiamond, yDiamond, w, h, blockW, blockH):
+                    continue
+                if k == 4:
+                    continue
+
+                if ((xDiamond >= xLast - 1) and   # avoid redundant computations from the last search
+                    (xDiamond <= xLast + 1) and
+                    (yDiamond >= yLast - 1) and
+                    (yDiamond <= yLast + 1)):
+                    continue
+                else:
+                    costs[k] = _costMAD(imgCurr[yDiamond - blockH // 2 : yDiamond + blockH - blockH // 2, 
+                                            xDiamond - blockW // 2 : xDiamond + blockW - blockW // 2], 
+                                            ref_block)
+                    computations += 1
+        else:                                # next MBD point is at the edge
+            lst = []
+            if point == 1:                   # the point positions that needs computation
+                lst = np.array([0, 1, 3])
+            elif point == 2:
+                lst = np.array([0, 2, 5])
+            elif point == 6:
+                lst = np.array([3, 6, 8])
+            elif point == 7:
+                lst = np.array([5, 7, 8])
+
+            for idx in lst:
+                yDiamond = y + LDSP[idx][1]
+                xDiamond = x + LDSP[idx][0]
+                if not _checkBounded(xDiamond, yDiamond, w, h, blockW, blockH):
+                    continue
+                else:
+                    costs[idx] = _costMAD(imgCurr[yDiamond - blockH // 2 : yDiamond + blockH - blockH // 2, 
+                                            xDiamond - blockW // 2 : xDiamond + blockW - blockW // 2], 
+                                            ref_block)
+                    computations += 1
+
+        point = np.argmin(costs)
+        cost = costs[point]
+
+        SDSPFlag = 1
+        if point != 4:
             SDSPFlag = 0
-            cornerFlag = 1      # cornerFlag = 1: the MBD point is at the corner
-            if (np.abs(LDSP[point][0]) == np.abs(LDSP[point][1])):  # check if the MBD point is at the edge
+            cornerFlag = 1
+            if (np.abs(LDSP[point][0]) == np.abs(LDSP[point][1])):
                 cornerFlag = 0
             xLast = x
             yLast = y
@@ -132,103 +190,45 @@ def DS_for_bbox(imgCurr, ref_block, prev_bbox):
             y += LDSP[point][1]
             costs[:] = 65537
             costs[4] = cost
+    costs[:] = 65537
+    costs[2] = cost
 
-        while SDSPFlag == 0:       # start iteration until the SDSP is triggered
-            if cornerFlag == 1:    # next MBD point is at the corner
-                for k in range(9):
-                    yDiamond = y + LDSP[k][1]
-                    xDiamond = x + LDSP[k][0]
-                    if not _checkBounded(xDiamond, yDiamond, w, h, blockW, blockH):
-                        continue
-                    if k == 4:
-                        continue
+    for k in range(5):                # trigger SDSP
+        yDiamond = y + SDSP[k][1]
+        xDiamond = x + SDSP[k][0]
 
-                    if ((xDiamond >= xLast - 1) and   # avoid redundant computations from the last search
-                        (xDiamond <= xLast + 1) and
-                        (yDiamond >= yLast - 1) and
-                        (yDiamond <= yLast + 1)):
-                        continue
-                    else:
-                        costs[k] = _costMAD(imgCurr[yDiamond - blockH // 2 : yDiamond + blockH - blockH // 2, 
-                                                xDiamond - blockW // 2 : xDiamond + blockW - blockW // 2], 
-                                                ref_block)
-                        computations += 1
-            else:                                # next MBD point is at the edge
-                lst = []
-                if point == 1:                   # the point positions that needs computation
-                    lst = np.array([0, 1, 3])
-                elif point == 2:
-                    lst = np.array([0, 2, 5])
-                elif point == 6:
-                    lst = np.array([3, 6, 8])
-                elif point == 7:
-                    lst = np.array([5, 7, 8])
+        if not _checkBounded(xDiamond, yDiamond, w, h, blockW, blockH):
+            continue
 
-                for idx in lst:
-                    yDiamond = y + LDSP[idx][1]
-                    xDiamond = x + LDSP[idx][0]
-                    if not _checkBounded(xDiamond, yDiamond, w, h, blockW, blockH):
-                        continue
-                    else:
-                        costs[idx] = _costMAD(imgCurr[yDiamond - blockH // 2 : yDiamond + blockH - blockH // 2, 
-                                                xDiamond - blockW // 2 : xDiamond + blockW - blockW // 2], 
-                                                ref_block)
-                        computations += 1
+        if k == 2:
+            continue
 
-            point = np.argmin(costs)
-            cost = costs[point]
+        costs[k] = _costMAD(imgCurr[yDiamond - blockH // 2 : yDiamond + blockH - blockH // 2, 
+                                    xDiamond - blockW // 2 : xDiamond + blockW - blockW // 2], 
+                                    ref_block)
+        computations += 1
 
-            SDSPFlag = 1
-            if point != 4:
-                SDSPFlag = 0
-                cornerFlag = 1
-                if (np.abs(LDSP[point][0]) == np.abs(LDSP[point][1])):
-                    cornerFlag = 0
-                xLast = x
-                yLast = y
-                x += LDSP[point][0]
-                y += LDSP[point][1]
-                costs[:] = 65537
-                costs[4] = cost
-        costs[:] = 65537
-        costs[2] = cost
+    point = 2
+    cost = 0 
+    if costs[2] != 0:
+        point = np.argmin(costs)
+        cost = costs[point]
 
-        for k in range(5):                # trigger SDSP
-            yDiamond = y + SDSP[k][1]
-            xDiamond = x + SDSP[k][0]
+    x += SDSP[point][0]
+    y += SDSP[point][1]
+    
+    costs[:] = 65537
 
-            if not _checkBounded(xDiamond, yDiamond, w, h, blockW, blockH):
-                continue
-
-            if k == 2:
-                continue
-
-            costs[k] = _costMAD(imgCurr[yDiamond - blockH // 2 : yDiamond + blockH - blockH // 2, 
-                                        xDiamond - blockW // 2 : xDiamond + blockW - blockW // 2], 
-                                        ref_block)
-            computations += 1
-
-        point = 2
-        cost = 0 
-        if costs[2] != 0:
-            point = np.argmin(costs)
-            cost = costs[point]
-
-        x += SDSP[point][0]
-        y += SDSP[point][1]
-        
-        costs[:] = 65537
-
-        bboxCurr = [x - blockW // 2, y - blockH // 2, x + blockW - blockW // 2, y + blockH - blockH // 2]
-        print('Computations: ', computations)
+    bboxCurr = [x - blockW // 2, y - blockH // 2, x + blockW - blockW // 2, y + blockH - blockH // 2]
+    print('Computations: ', computations)
     return bboxCurr, computations / ((h * w) / (blockW*blockH))
         
 if __name__ == "__main__":
     # gt_path = '/nfs/u40/xur86/projects/yolov5/data/images/highway/faster_rcnn_resnet101_1280x720_23_detections.csv'
     # image_root = '/nfs/u40/xur86/projects/yolov5/data/images/highway'
     # draw_gt_on_image(gt_path, image_root, 2)
-    ref_image = cv2.imread('/nfs/u40/xur86/projects/yolov5/data/images/highway/000010.jpg')
-    target_image = cv2.imread('/nfs/u40/xur86/projects/yolov5/data/images/highway/000014.jpg')
+    ref_image = cv2.imread("/home/wiser-renjie/remote_datasets/yolov5_images/highway/000010.jpg")
+    target_image = cv2.imread("/home/wiser-renjie/remote_datasets/yolov5_images/highway/000014.jpg")
     height, width = target_image.shape[:2]
 
     ref_bbox = [237, 421, 325, 473]             # reference box in the first frame

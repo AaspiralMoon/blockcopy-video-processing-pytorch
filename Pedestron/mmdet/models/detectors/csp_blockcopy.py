@@ -59,35 +59,35 @@ class CSPBlockCopy(CSP):
                 self.policy_meta = self.policy_meta.copy()
                 out = self.policy_meta['outputs']
             else:
-                # new added   
-                self.execution_percentage = 0.2                        # define execution percentage
-                frame = self.policy_meta["inputs"]
-                N, C, H, W = frame.shape
-                G = (H // self.policy.block_size, W // self.policy.block_size)
-                assert H % self.policy.block_size == 0, f"input height ({H}) not a multiple of block size {self.policy.block_size}!"
-                assert W % self.policy.block_size == 0, f"input width  ({W}) not a multiple of block size {self.policy.block_size}!"
+                # # new added   
+                # self.execution_percentage = 0.7                        # define execution percentage
+                # frame = self.policy_meta["inputs"]
+                # N, C, H, W = frame.shape
+                # G = (H // self.policy.block_size, W // self.policy.block_size)
+                # assert H % self.policy.block_size == 0, f"input height ({H}) not a multiple of block size {self.policy.block_size}!"
+                # assert W % self.policy.block_size == 0, f"input width  ({W}) not a multiple of block size {self.policy.block_size}!"
 
-                if self.policy_meta.get("outputs_prev", None) is None:
-                    grid = torch.ones((N, 1, G[0], G[1]), device=self.policy_meta["inputs"].device).type(torch.bool)
-                else:
-                    # grid = (torch.randn((N, 1, G[0], G[1]), device=policy_meta["inputs"].device) > (1 - self.execution_percentage)).type(torch.bool)
-                    num_blocks = G[0] * G[1]
-                    num_exec_blocks = int(num_blocks * self.execution_percentage)
+                # if self.policy_meta.get("outputs_prev", None) is None:
+                #     grid = torch.ones((N, 1, G[0], G[1]), device=self.policy_meta["inputs"].device).type(torch.bool)
+                # else:
+                #     # grid = (torch.randn((N, 1, G[0], G[1]), device=policy_meta["inputs"].device) > (1 - self.execution_percentage)).type(torch.bool)
+                #     num_blocks = G[0] * G[1]
+                #     num_exec_blocks = int(num_blocks * self.execution_percentage)
 
-                    # Initialize grid with zeros
-                    grid = torch.zeros((N, 1, G[0], G[1]), device=self.policy_meta["inputs"].device, dtype=torch.bool)
+                #     # Initialize grid with zeros
+                #     grid = torch.zeros((N, 1, G[0], G[1]), device=self.policy_meta["inputs"].device, dtype=torch.bool)
 
-                    # Randomly select blocks to be executed
-                    for i in range(N):
-                        indices = torch.multinomial(torch.ones(num_blocks), num_exec_blocks, replacement=False)
-                        grid[i, 0, indices // G[1], indices % G[1]] = 1
+                #     # Randomly select blocks to be executed
+                #     for i in range(N):
+                #         indices = torch.multinomial(torch.ones(num_blocks), num_exec_blocks, replacement=False)
+                #         grid[i, 0, indices // G[1], indices % G[1]] = 1
 
-                # grid = self.quantize_number_exec_grid(grid)
+                # # grid = self.quantize_number_exec_grid(grid)
 
-                self.policy_meta["grid"] = grid
-                self.policy_meta = self.policy.stats.add_policy_meta(self.policy_meta)
-                print('Executed blocks: ', self.policy_meta["num_exec"])
-                # new part ends here
+                # self.policy_meta["grid"] = grid
+                # self.policy_meta = self.policy.stats.add_policy_meta(self.policy_meta)
+                # print('Executed blocks: ', self.policy_meta["num_exec"])
+                # # new part ends here
                 
                 # convert inputs into tensorwrapper object
                 x = blockcopy.to_tensorwrapper(img)
