@@ -2,8 +2,7 @@
 *.png
 *.gif
 *.pt
-/results/
-/cityscapes/
+results/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
