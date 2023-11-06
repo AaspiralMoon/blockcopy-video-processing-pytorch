@@ -39,9 +39,12 @@ def transform_boxes(boxes, img_width, img_height):
     return transformed_boxes
 
 if __name__ == "__main__":
-    image_list = ["{:06d}.jpg".format(i) for i in range(130, 181)]
-    image_path = "/home/wiser-renjie/remote_datasets/MOT17/MOT17-09-SDP/img1"   
-    save_path = 'results/MOT17-09-SDP'
+    image_path = "/home/wiser-renjie/remote_datasets/MOT20/train/MOT20-01/img1"
+    # image_list = ["{:06d}.jpg".format(i) for i in range(1, 61)]
+    image_list = os.listdir(image_path)
+    image_list = sorted(image_list)
+    image_list = image_list[:120]
+    save_path = 'results/MOT20-01'
     mkdir_if_missing(save_path)
     interval = 20                                # every N frames, trigger the detector to generate boxes
     

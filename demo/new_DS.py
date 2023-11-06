@@ -173,15 +173,19 @@ def DS_for_bbox(imgCurr, ref_block, prev_bbox):
     if costs[2] != 0:
         point = np.argmin(costs)
         cost = costs[point]
-
+    
+    mean_avg_diff = cost                # difference between matched block and ref block
+    
     x += SDSP[point][0]
     y += SDSP[point][1]
     
     costs[:] = 65537
 
     bboxCurr = [x, y, x+blockW, y+blockH]
-    print('Computation: ', computations)
-    return bboxCurr, computations / ((h * w) / (blockW*blockH))
+
+
+    return bboxCurr, mean_avg_diff
+    # return bboxCurr, computations / ((h * w) / (blockW*blockH))
         
 if __name__ == "__main__":  
     ref_image = cv2.imread("/home/wiser-renjie/remote_datasets/yolov5_images/highway/000010.jpg")
