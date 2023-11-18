@@ -2,7 +2,12 @@ import cv2
 import os
 import numpy as np
 import os.path as osp
-from new_DS_center import DS_for_bbox
+import torch
+# from new_DS_center import DS_for_bbox
+import sys
+sys.path.append('/home/wiser-renjie/projects/blockcopy/demo/build')
+
+import obds_torch_extension
 from online_yolov5 import yolov5_inference
 import time
 
@@ -62,7 +67,11 @@ if __name__ == "__main__":
         else:
             for j, prev_box in enumerate(prev_box_list):
                 ref_block = ref_img[ref_box_list[j][1]:ref_box_list[j][3], ref_box_list[j][0]:ref_box_list[j][2]] 
-                new_box, _ = DS_for_bbox(imgCurr, ref_block, prev_box)
+                imgCurr_tensor = torch.from_numpy(imgCurr).float() / 255.0
+                ref_block_tensor = torch.from_numpy(ref_block).float() / 255.0
+                print(imgCurr_tensor.shape)
+                print(ref_block_tensor.shape)
+                new_box = obds_torch_extension.OBDS(imgCurr_tensor, ref_block_tensor, prev_box)
                 new_box_list.append(new_box)
             for new_box in new_box_list:
                 cv2.rectangle(imgCurrCopy, (new_box[0], new_box[1]), (new_box[2], new_box[3]), color=(0, 0, 255), thickness=2)

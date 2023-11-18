@@ -174,8 +174,6 @@ def DS_for_bbox(imgCurr, ref_block, prev_bbox):
         point = np.argmin(costs)
         cost = costs[point]
     
-    mean_avg_diff = cost                # difference between matched block and ref block
-    
     x += SDSP[point][0]
     y += SDSP[point][1]
     
@@ -184,7 +182,7 @@ def DS_for_bbox(imgCurr, ref_block, prev_bbox):
     bboxCurr = [x, y, x+blockW, y+blockH]
 
 
-    return bboxCurr, mean_avg_diff
+    return bboxCurr, cost
     # return bboxCurr, computations / ((h * w) / (blockW*blockH))
         
 if __name__ == "__main__":  

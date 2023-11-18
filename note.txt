@@ -1,0 +1,17 @@
+1. sigmoid -> softmax
+# blockcopy/blockcopy/policy/net.py: line 55
+# blockcopy/blockcopy/policy/policy.py: line 327
+
+2. stochastic sampling
+# blockcopy/blockcopy/policy/policy.py: line 130
+
+
+
+3. information gain, reward
+# blockcopy/blockcopy/policy/information_gain.py
+
+
+4. OBDS
+
+5. frame state update
+# Pedestron/mmdet/models/detectors/csp_blockcopy.py

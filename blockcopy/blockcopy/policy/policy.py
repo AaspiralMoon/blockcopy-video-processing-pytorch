@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from blockcopy.policy.information_gain import InformationGain, InformationGainObjectDetection, InformationGainSemSeg
 from blockcopy.policy.net import PolicyNet, build_policy_net_from_settings
 from ..utils.profiler import timings
-from torch.distributions import Bernoulli
+from torch.distributions import Bernoulli, Categorical
 
 
 def build_policy_from_settings(settings: dict) -> None:
@@ -324,7 +324,7 @@ class PolicyTrainRL(Policy, metaclass=abc.ABCMeta):
                     ), "Policy net returned NaN's, maybe optimization problem?"
 
                 with timings.env("policy/sample", 3):
-                    m = Bernoulli(logits=grid_logits)  # create distribution
+                    m = Categorical(logits=grid_logits)  # create distribution, change Bernoulli to Categorical
                     grid = m.sample()  # sample
 
                 if self.at_least_one and grid.sum() == 0:
@@ -334,7 +334,7 @@ class PolicyTrainRL(Policy, metaclass=abc.ABCMeta):
                 grid = self.quantize_number_exec_grid(grid)
 
                 grid_probs = m.probs
-                grid_log_probs = m.log_prob(grid)
+                grid_log_probs = m.log_prob(grid)     # this step is related to reward
 
                 assert grid.dim() == 4
                 assert grid_probs.dim() == 4

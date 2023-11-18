@@ -52,7 +52,7 @@ class PolicyNet(nn.Module):
         layers = []
         layers.append(self._make_layer(self.backbone.OUT_CHANNELS, planes, kernel_size=3, stride=2, relu=True))
         layers.append(self._make_layer(planes, planes, kernel_size=3, stride=2, relu=True))
-        layers.append(self._make_layer(planes, 1, kernel_size=3, stride=2, relu=False))
+        layers.append(self._make_layer(planes, 3, kernel_size=3, stride=2, relu=False))                 # out_channel = 3, three actions
 
         # for i in range(2, len(strides) - 2):
         #     layers.append(self._make_layer(planes, planes, kernel_size=kernel_sizes[i], stride=strides[i]))
