@@ -148,6 +148,18 @@ class Policy(torch.nn.Module, metaclass=abc.ABCMeta):
                 idx = random.sample(idx_not_exec, num_exec_rounded - num_exec)
                 grid.flatten()[idx] = 1
         return grid
+    
+    def stochastic_explore(grid: torch.Tensor) -> torch.Tensor:
+        grid2 = grid.cpu()
+        total = grid2.numel()
+        idx_not_exec = torch.nonzero(grid2.flatten()==0).squeeze(1).tolist()
+        idx_exec = torch.nonzero(grid2.flatten()==1).squeeze(1).tolist()
+        num_exec = len(idx_exec)
+        multiple = int(total * (1 / 16))
+        num_exec_rounded = multiple * (1 + (num_exec - 1) // multiple)
+        idx = random.sample(idx_not_exec, num_exec_rounded - num_exec)
+        grid.flatten()[idx] = 1
+        return grid
 
     @abstractmethod
     def forward(self, policy_meta: dict) -> dict:
@@ -311,7 +323,7 @@ class PolicyTrainRL(Policy, metaclass=abc.ABCMeta):
         if policy_meta["outputs"] is None:
             # if no temporal history, execute all
             G = (H // self.block_size, W // self.block_size)
-            grid = torch.ones((N, 1, G[0], G[1]), device=policy_meta["inputs"].device, dtype=torch.bool)
+            grid = torch.ones((N, 3, G[0], G[1]), device=policy_meta["inputs"].device, dtype=torch.bool)  # bool?
             policy_meta["grid"] = grid
         else:
             # execute policy net
@@ -324,14 +336,16 @@ class PolicyTrainRL(Policy, metaclass=abc.ABCMeta):
                     ), "Policy net returned NaN's, maybe optimization problem?"
 
                 with timings.env("policy/sample", 3):
+                    grid_logits = grid_logits.view(-1, 3) 
                     m = Categorical(logits=grid_logits)  # create distribution, change Bernoulli to Categorical
                     grid = m.sample()  # sample
+                    grid = grid.view(N, 1, G[0], G[1])
 
                 if self.at_least_one and grid.sum() == 0:
                     # if no blocks executed, execute a single one
-                    grid[0, 0, 0, 0] = 1
+                    grid[0, 0, 0, 0] = 1             # B, C, H, W.       C=0: non-executed, C=1: CNN, C=2: OBDS
 
-                grid = self.quantize_number_exec_grid(grid)
+                grid = self.stochastic_explore(grid)
 
                 grid_probs = m.probs
                 grid_log_probs = m.log_prob(grid)     # this step is related to reward
@@ -342,7 +356,7 @@ class PolicyTrainRL(Policy, metaclass=abc.ABCMeta):
 
                 policy_meta["grid_log_probs"] = grid_log_probs
                 policy_meta["grid_probs"] = grid_probs
-                policy_meta["grid"] = grid.bool()
+                policy_meta["grid"] = grid.bool()             # this step needs to modify for three actions
         policy_meta = self.stats.add_policy_meta(policy_meta)
         return policy_meta
 

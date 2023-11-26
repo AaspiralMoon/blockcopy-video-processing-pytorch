@@ -1,10 +1,11 @@
-1. sigmoid -> softmax
+1. sigmoid -> softmax (Done)
 # blockcopy/blockcopy/policy/net.py: line 55
 # blockcopy/blockcopy/policy/policy.py: line 327
 
-2. stochastic sampling
+2. stochastic sampling (Done)
 # blockcopy/blockcopy/policy/policy.py: line 130
 
+verify: 1) execute 64 always vs. execute 60-63 randomly
 
 
 3. information gain, reward
