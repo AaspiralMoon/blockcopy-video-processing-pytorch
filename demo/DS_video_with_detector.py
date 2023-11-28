@@ -62,7 +62,10 @@ if __name__ == "__main__":
         else:
             for j, prev_box in enumerate(prev_box_list):
                 ref_block = ref_img[ref_box_list[j][1]:ref_box_list[j][3], ref_box_list[j][0]:ref_box_list[j][2]] 
+                t1 = time.time()
                 new_box, _ = DS_for_bbox(imgCurr, ref_block, prev_box)
+                t2 = time.time()
+                print('Time: {} ms'.format((t2-t1)*1000))
                 new_box_list.append(new_box)
             for new_box in new_box_list:
                 cv2.rectangle(imgCurrCopy, (new_box[0], new_box[1]), (new_box[2], new_box[3]), color=(0, 0, 255), thickness=2)

@@ -3,9 +3,7 @@ import os
 import numpy as np
 import os.path as osp
 import torch
-import sys
-sys.path.append('/home/wiser-renjie/projects/blockcopy/demo/OBDS/build')
-
+import time
 import OBDS_zoo
 from online_yolov5 import yolov5_inference
 
@@ -65,15 +63,17 @@ if __name__ == "__main__":
         else:
             for j, prev_box in enumerate(prev_box_list):
                 ref_block = ref_img[ref_box_list[j][1]:ref_box_list[j][3], ref_box_list[j][0]:ref_box_list[j][2]] 
-                imgCurr = torch.from_numpy(imgCurr).permute(2, 0, 1).float() / 255.0  # Convert HWC to CHW
-                ref_block = torch.from_numpy(ref_block).permute(2, 0, 1).float() / 255.0  # Convert HWC to CHW
+                imgCurr2 = torch.from_numpy(imgCurr).permute(2, 0, 1).float() / 255.0  # Convert HWC to CHW
+                ref_block2 = torch.from_numpy(ref_block).permute(2, 0, 1).float() / 255.0  # Convert HWC to CHW
 
                 
-                print("imgCurr type:", type(imgCurr), "shape:", imgCurr.shape)
-                print("ref_block type:", type(ref_block), "shape:", ref_block.shape)
-                print("prev_bbox type:", type(prev_box), "content:", prev_box)
-
-                new_box = OBDS_zoo.OBDS(imgCurr, ref_block, prev_box)
+                # print("imgCurr type:", type(imgCurr), "shape:", imgCurr.shape)
+                # print("ref_block type:", type(ref_block), "shape:", ref_block.shape)
+                # print("prev_bbox type:", type(prev_box), "content:", prev_box)
+                t1 = time.time()
+                new_box = OBDS_zoo.OBDS(imgCurr2, ref_block2, prev_box)
+                t2 = time.time()
+                print('Time: {} ms'.format((t2-t1)*1000))
                 new_box_list.append(new_box)
             for new_box in new_box_list:
                 cv2.rectangle(imgCurrCopy, (new_box[0], new_box[1]), (new_box[2], new_box[3]), color=(0, 0, 255), thickness=2)

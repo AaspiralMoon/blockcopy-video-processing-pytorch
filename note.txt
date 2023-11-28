@@ -9,10 +9,12 @@ verify: 1) execute 64 always vs. execute 60-63 randomly
 
 
 3. information gain, reward
-# blockcopy/blockcopy/policy/information_gain.py
+# blockcopy/blockcopy/policy/information_gain.py: line 68
 
 
-4. OBDS
+4. combine OBDS into pipeline
+# Pedestron/mmdet/models/detectors/csp_blockcopy.py: line 99
 
 5. frame state update
 # Pedestron/mmdet/models/detectors/csp_blockcopy.py
+# Pedestron/mmdet/models/detectors/csp_blockcopy.py: line 102
