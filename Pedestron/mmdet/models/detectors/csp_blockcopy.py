@@ -10,7 +10,7 @@ from mmdet.core import bbox2result
 from ..registry import DETECTORS
 from .csp import CSP
 import copy
-
+import OBDS_zoo
 
 @DETECTORS.register_module
 class CSPBlockCopy(CSP):
@@ -112,8 +112,16 @@ class CSPBlockCopy(CSP):
                     bbox2result(det_bboxes, det_labels, self.bbox_head.num_classes)
                     for det_bboxes, det_labels in bbox_list
                 ]
-
-
+                
+                # run OBDS (multi-threading)
+                out_OBDS = OBDS_zoo.OBDS(self.policy_meta)
+                self.policy_meta['outputs_ref'] =
+                self.policy_meta['outputs_OBDS'] =
+                
+                # update frame state
+                self.policy_meta['frame_state'] =
+                
+                
             # keep previous outputs for policy
             self.policy_meta['outputs_prev'] = self.policy_meta['outputs']
             self.policy_meta['outputs'] = out

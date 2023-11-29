@@ -11,9 +11,14 @@ verify: 1) execute 64 always vs. execute 60-63 randomly
 3. information gain, reward
 # blockcopy/blockcopy/policy/information_gain.py: line 68
 
+policy_meta['output'] = np.array[[x1, y1, x2, y2, score], [x1, y1, x2, y2, score], ...]
+policy_meta['grid'] = booltensor, shape=[1, 1, 8, 16]
 
-4. combine OBDS into pipeline
+4. combine OBDS into pipeline, disable the features of blue blocks
 # Pedestron/mmdet/models/detectors/csp_blockcopy.py: line 99
+
+policy_meta['ref_det']
+OBDS_bbox = [x1, y1, x2, y2, score, id]
 
 5. frame state update
 # Pedestron/mmdet/models/detectors/csp_blockcopy.py
