@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+import time
 
 def yolov5_inference(img):
     outputs = []

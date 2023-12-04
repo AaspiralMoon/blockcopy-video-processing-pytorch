@@ -1,6 +1,7 @@
 
 import os
 import cv2
+import time
 import os.path as osp
 import numpy as np
 from online_yolov5 import yolov5_inference_with_id
@@ -20,15 +21,34 @@ def _checkBounded(xval, yval, w, h, blockW, blockH):
     else:
         return True
 
-def filter_det(grid, bboxes, block_size):
-    centers = np.array([((x1 + x2) // 2, (y1 + y2) // 2) for x1, y1, x2, y2, _, _, _ in bboxes], dtype=int)
+# def filter_det(grid, bboxes, block_size):
+#     centers = ((bboxes[:, 0:2] + bboxes[:, 2:4]) // 2).astype(int)
 
+#     row_indices = centers[:, 1] // block_size
+#     col_indices = centers[:, 0] // block_size
+
+#     bbox_indices = np.array([grid[row, col] == 1 if 0 <= row < grid.shape[0] and 0 <= col < grid.shape[1] else False for row, col in zip(row_indices, col_indices)])
+
+#     return np.array(bboxes)[bbox_indices]
+
+def filter_det(grid, bboxes, block_size):
+    # Calculate centers
+    centers = ((bboxes[:, 0:2] + bboxes[:, 2:4]) // 2).astype(int)
+    
+    # Calculate row and column indices
     row_indices = centers[:, 1] // block_size
     col_indices = centers[:, 0] // block_size
 
-    bbox_indices = np.array([grid[row, col] == 1 if 0 <= row < grid.shape[0] and 0 <= col < grid.shape[1] else False for row, col in zip(row_indices, col_indices)])
+    # Check bounds
+    valid_rows = (row_indices >= 0) & (row_indices < grid.shape[0])  # grid: [N, C, H, W]
+    valid_cols = (col_indices >= 0) & (col_indices < grid.shape[1])
+    valid_indices = valid_rows & valid_cols
+    
+    # Filter based on grid activation
+    bbox_indices = valid_indices & (grid[row_indices, col_indices] == 1)
 
-    return np.array(bboxes)[bbox_indices]
+    return bboxes[bbox_indices]
+
 
 def init_grid(rows, cols, percentage_ones):
     num_ones = int(rows * cols * percentage_ones)
@@ -57,24 +77,12 @@ def plot_bbox(image, bboxes):
     return image
 
 def OBDS_single(img_curr, block_ref, bbox_prev):
-    """
-    Use the DS algorithm to find the most matching block in the current frame for the given detection box.
-    
-    Parameters:
-    imgPrev: Previous frame
-    imgCurr: Current frame
-    bbox: Detection box in the previous frame, format [x1, y1, x2, y2]
-    p: Search parameter
-    
-    Returns:
-    new_bbox: Coordinates of the most matching block in the current frame
-    """
     h, w = img_curr.shape[:2]
     
-    x1, y1, x2, y2, conf, id, _ = bbox_prev
-
-    x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+    x1, y1, x2, y2 = bbox_prev[:4].astype(int)
     
+    conf, id = bbox_prev[4], bbox_prev[5]
+
     blockW = x2 - x1
     blockH = y2 - y1
     
@@ -201,7 +209,7 @@ def OBDS_single(img_curr, block_ref, bbox_prev):
     
     costs[:] = 65537
 
-    bboxCurr = [x, y, x+blockW, y+blockH, conf, id, 0]
+    bboxCurr = np.array([x, y, x+blockW, y+blockH, conf, id, 0])     # [x1, y1, x2, y2, conf, id, flag]
 
     return bboxCurr
 
@@ -214,9 +222,12 @@ def OBDS_run(policy_meta, block_size = 128):
     outputs_prev = policy_meta['outputs_prev']
     outputs_ref = policy_meta['outputs_ref']
     grid = policy_meta['grid']
+    t1 = time.time()
     outputs_prev = filter_det(grid, outputs_prev, block_size)
     outputs = OBDS_all(img, outputs_prev, outputs_ref)
     outputs = filter_det(grid, outputs, block_size)
+    t2 = time.time()
+    print("Filter time: {} ms".format((t2-t1)*1000))
     return outputs
 
 
@@ -225,18 +236,18 @@ if __name__ == "__main__":
     image_list = os.listdir(image_path)
     image_list = sorted(image_list)
     image_list = image_list[:20]
-    save_path = '/home/wiser-renjie/projects/blockcopy/demo/results/highway2'
+    save_path = '/home/wiser-renjie/projects/blockcopy/demo/results/highway3'
     mkdir_if_missing(save_path)
     interval = 20
 
     policy_meta = {}
+    grid = init_grid(8, 16, 0.70)
+    policy_meta['grid'] = grid
     for i in range(0, len(image_list)):
         new_box_list = []
         img_curr = cv2.imread(osp.join(image_path, image_list[i]))
         img_curr = cv2.resize(img_curr, (2048, 1024)) if img_curr.shape[1] != 2048 or img_curr.shape[0] != 1024 else img_curr
-        grid = init_grid(8, 16, 0.70)
         policy_meta['inputs'] = img_curr
-        policy_meta['grid'] = grid
         img_curr_copy = img_curr.copy()
         img_curr_copy = plot_grid(img_curr_copy, grid, 128)
         if i % interval == 0: 
@@ -249,8 +260,8 @@ if __name__ == "__main__":
             for j, ref_box in enumerate(ref_box_list):
                 cv2.rectangle(img_curr_copy, (ref_dict[j]['bbox'][0], ref_dict[j]['bbox'][1]), (ref_dict[j]['bbox'][2], ref_dict[j]['bbox'][3]), color=(255, 0, 0), thickness=2)
         else:
-            # new_box_list = OBDS_run(policy_meta)
-            new_box_list, _ = yolov5_inference_with_id(img_curr, img_id=i)
+            new_box_list = OBDS_run(policy_meta)
+            # new_box_list, _ = yolov5_inference_with_id(img_curr, img_id=i)
             img_curr_copy = plot_bbox(img_curr_copy, new_box_list)
             new_box_list = filter_det(grid, new_box_list, block_size=128)
             policy_meta['outputs_prev'] = new_box_list
