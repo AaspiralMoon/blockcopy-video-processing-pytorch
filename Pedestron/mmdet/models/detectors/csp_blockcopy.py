@@ -115,7 +115,7 @@ class CSPBlockCopy(CSP):
                 
                 # run OBDS (multi-threading)
                 out_OBDS = OBDS_zoo.OBDS(self.policy_meta)
-                self.policy_meta['outputs_ref'] =
+                self.policy_meta['outputs_ref'] = 
                 self.policy_meta['outputs_OBDS'] =
                 
                 # update frame state

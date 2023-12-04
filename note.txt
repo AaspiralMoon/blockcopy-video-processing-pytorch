@@ -18,7 +18,7 @@ policy_meta['grid'] = booltensor, shape=[1, 1, 8, 16]
 # Pedestron/mmdet/models/detectors/csp_blockcopy.py: line 99
 
 policy_meta['ref_det']
-OBDS_bbox = [x1, y1, x2, y2, score, id]
+OBDS_bbox = [x1, y1, x2, y2, score, id, flag]
 
 5. frame state update
 # Pedestron/mmdet/models/detectors/csp_blockcopy.py
