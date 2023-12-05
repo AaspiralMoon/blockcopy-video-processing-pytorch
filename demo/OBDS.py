@@ -33,7 +33,7 @@ def _checkBounded(xval, yval, w, h, blockW, blockH):
 
 def filter_det(grid, bboxes, block_size):
     # Calculate centers
-    centers = ((bboxes[:, 0:2] + bboxes[:, 2:4]) // 2).astype(int)
+    centers = ((bboxes[:, 0:2] + bboxes[:, 2:4]) // 2).astype(np.int32)
     
     # Calculate row and column indices
     row_indices = centers[:, 1] // block_size
@@ -79,7 +79,7 @@ def plot_bbox(image, bboxes):
 def OBDS_single(img_curr, block_ref, bbox_prev):
     h, w = img_curr.shape[:2]
     
-    x1, y1, x2, y2 = bbox_prev[:4].astype(int)
+    x1, y1, x2, y2 = bbox_prev[:4].astype(np.int32)
     
     conf, id = bbox_prev[4], bbox_prev[5]
 

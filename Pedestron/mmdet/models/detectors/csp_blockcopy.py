@@ -32,6 +32,7 @@ class CSPBlockCopy(CSP):
         return super().forward(**kwargs)
 
     def reset_temporal(self):
+        self.obj_id = 0
         self.clip_length = 0
         if self.block_temporal_features:
             self.block_temporal_features.clear() 
@@ -43,9 +44,20 @@ class CSPBlockCopy(CSP):
         }
         torch.cuda.empty_cache()
 
+    def get_outputs_ref(self, out):
+        img = self.policy_meta['inputs']
+        img_id = self.clip_length
+        outputs_ref = {}
+        for bbox in out[0][0][:, :4].astype(np.int32):
+            outputs_ref[self.obj_id] = {
+                                    'data': img[bbox[1]:bbox[3], bbox[0]:bbox[2]],
+                                    'bbox': bbox,
+                                    'img_id': img_id
+                                  }
+            self.obj_id += 1
+        return outputs_ref
+        
     def simple_test(self, img, img_meta, rescale=False):
-        self.clip_length += 1
-    
         # run policy
         self.policy_meta['inputs'] = img
         with timings.env('blockcopy/policy_forward', 3):
@@ -59,36 +71,6 @@ class CSPBlockCopy(CSP):
                 self.policy_meta = self.policy_meta.copy()
                 out = self.policy_meta['outputs']
             else:
-                # # new added   
-                # self.execution_percentage = 0.7                        # define execution percentage
-                # frame = self.policy_meta["inputs"]
-                # N, C, H, W = frame.shape
-                # G = (H // self.policy.block_size, W // self.policy.block_size)
-                # assert H % self.policy.block_size == 0, f"input height ({H}) not a multiple of block size {self.policy.block_size}!"
-                # assert W % self.policy.block_size == 0, f"input width  ({W}) not a multiple of block size {self.policy.block_size}!"
-
-                # if self.policy_meta.get("outputs_prev", None) is None:
-                #     grid = torch.ones((N, 1, G[0], G[1]), device=self.policy_meta["inputs"].device).type(torch.bool)
-                # else:
-                #     # grid = (torch.randn((N, 1, G[0], G[1]), device=policy_meta["inputs"].device) > (1 - self.execution_percentage)).type(torch.bool)
-                #     num_blocks = G[0] * G[1]
-                #     num_exec_blocks = int(num_blocks * self.execution_percentage)
-
-                #     # Initialize grid with zeros
-                #     grid = torch.zeros((N, 1, G[0], G[1]), device=self.policy_meta["inputs"].device, dtype=torch.bool)
-
-                #     # Randomly select blocks to be executed
-                #     for i in range(N):
-                #         indices = torch.multinomial(torch.ones(num_blocks), num_exec_blocks, replacement=False)
-                #         grid[i, 0, indices // G[1], indices % G[1]] = 1
-
-                # # grid = self.quantize_number_exec_grid(grid)
-
-                # self.policy_meta["grid"] = grid
-                # self.policy_meta = self.policy.stats.add_policy_meta(self.policy_meta)
-                # print('Executed blocks: ', self.policy_meta["num_exec"])
-                # # new part ends here
-                
                 # convert inputs into tensorwrapper object
                 x = blockcopy.to_tensorwrapper(img)
 
@@ -113,19 +95,24 @@ class CSPBlockCopy(CSP):
                     for det_bboxes, det_labels in bbox_list
                 ]
                 
-                # run OBDS (multi-threading)
-                out_OBDS = OBDS_zoo.OBDS(self.policy_meta)
-                self.policy_meta['outputs_ref'] = 
-                self.policy_meta['outputs_OBDS'] =
+                if self.policy_meta['outputs'] is None:        # process the first frame entirely
+                    self.policy_meta['outputs_ref'] = self.get_outputs_ref(out)
                 
-                # update frame state
-                self.policy_meta['frame_state'] =
+                else:
+                    # run OBDS (multi-threading)
+                    outputs_OBDS = OBDS_zoo.OBDS(self.policy_meta, self.policy.block_size)
+                    self.policy_meta['outputs_ref'] = {}
+                    self.policy_meta['outputs_OBDS'] = outputs_OBDS
+                    
+                    # update frame state
+                    self.policy_meta['frame_state'] = self.update_frame_state(self.policy_meta)
                 
                 
             # keep previous outputs for policy
             self.policy_meta['outputs_prev'] = self.policy_meta['outputs']
             self.policy_meta['outputs'] = out
 
+        self.clip_length += 1
         with timings.env('blockcopy/policy_optim', 3):
             if self.policy is not None:
                 train_policy = self.clip_length % self.train_interval == 0

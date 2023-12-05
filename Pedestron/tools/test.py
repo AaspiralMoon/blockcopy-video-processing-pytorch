@@ -47,9 +47,27 @@ import random
 # print(grid)
 # print(grid.bool())
 
-import numpy as np
-a = [[1, 2], [3, 4]]
 
-b = np.array(a)
-print(b)
-print(type(b[0]))
+import numpy as np
+
+class MyClass:
+    def __init__(self):
+        self.obj_id = 0
+
+    def add_obj_id_and_flag(self, out):
+        num_boxes = out[0].shape[0]
+        obj_ids = np.arange(self.obj_id, self.obj_id + num_boxes).reshape(-1, 1)
+        flags = np.ones((num_boxes, 1), dtype=int)
+
+        out[0] = np.hstack((out[0], obj_ids, flags))
+        self.obj_id += num_boxes
+
+        return out
+
+# Example usage
+my_class_instance = MyClass()
+out = [np.array([[1155.67578, 369.330475, 1181.67188, 432.735565, 0.510618448],
+                 [1121.50415, 396.891724, 1138.93677, 439.410461, 0.122925006]], dtype=np.float32)]
+out_modified = [my_class_instance.add_obj_id_and_flag(out)]
+
+print(out_modified[0][0][:, :4].astype(np.int32))
