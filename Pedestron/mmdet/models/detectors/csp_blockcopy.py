@@ -10,7 +10,11 @@ from mmdet.core import bbox2result
 from ..registry import DETECTORS
 from .csp import CSP
 import copy
-import OBDS_zoo
+
+# added
+import os, sys
+sys.path.append(os.path.abspath('/home/wiser-renjie/projects/blockcopy/demo'))
+from OBDS import OBDS_run
 
 @DETECTORS.register_module
 class CSPBlockCopy(CSP):
@@ -90,19 +94,19 @@ class CSPBlockCopy(CSP):
                 if self.return_feature_maps:
                     return self.bbox_head.get_bboxes_features(*bbox_inputs)
                 bbox_list = self.bbox_head.get_bboxes(*bbox_inputs)
-                out = [
+                out_CNN = [
                     bbox2result(det_bboxes, det_labels, self.bbox_head.num_classes)
                     for det_bboxes, det_labels in bbox_list
                 ]
                 
                 if self.policy_meta['outputs'] is None:        # process the first frame entirely
-                    self.policy_meta['outputs_ref'] = self.get_outputs_ref(out)
+                    self.policy_meta['outputs_ref'] = self.get_outputs_ref(out_CNN)
                 
                 else:
                     # run OBDS (multi-threading)
-                    outputs_OBDS = OBDS_zoo.OBDS(self.policy_meta, self.policy.block_size)
+                    out_OBDS = OBDS_run(self.policy_meta, self.policy.block_size)
                     self.policy_meta['outputs_ref'] = {}
-                    self.policy_meta['outputs_OBDS'] = outputs_OBDS
+                    self.policy_meta['outputs_OBDS'] = out_OBDS
                     
                     # update frame state
                     self.policy_meta['frame_state'] = self.update_frame_state(self.policy_meta)
