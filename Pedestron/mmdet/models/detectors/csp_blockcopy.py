@@ -99,6 +99,7 @@ class CSPBlockCopy(CSP):
                     for det_bboxes, det_labels in bbox_list
                 ]
                 
+                self.policy_meta['frame_id'] = self.clip_length
                 if self.policy_meta['outputs'] is None:        # process the first frame entirely
                     self.policy_meta['outputs_ref'] = self.get_outputs_ref(out_CNN)
                 

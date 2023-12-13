@@ -48,26 +48,44 @@ import random
 # print(grid.bool())
 
 
+# import numpy as np
+
+# class MyClass:
+#     def __init__(self):
+#         self.obj_id = 0
+
+#     def add_obj_id_and_flag(self, out):
+#         num_boxes = out[0].shape[0]
+#         obj_ids = np.arange(self.obj_id, self.obj_id + num_boxes).reshape(-1, 1)
+#         flags = np.ones((num_boxes, 1), dtype=int)
+
+#         out[0] = np.hstack((out[0], obj_ids, flags))
+#         self.obj_id += num_boxes
+
+#         return out
+
+# # Example usage
+# my_class_instance = MyClass()
+# out = [np.array([[1155.67578, 369.330475, 1181.67188, 432.735565, 0.510618448],
+#                  [1121.50415, 396.891724, 1138.93677, 439.410461, 0.122925006]], dtype=np.float32)]
+# out_modified = [my_class_instance.add_obj_id_and_flag(out)]
+
+# print(out_modified[0][0][:, :4].astype(np.int32))
+
 import numpy as np
 
-class MyClass:
-    def __init__(self):
-        self.obj_id = 0
+def modify_arrays(outputs, frame_id):
+    frame_id = frame_id + 1
+    outputs = outputs[:, :3]
+    print(outputs)
 
-    def add_obj_id_and_flag(self, out):
-        num_boxes = out[0].shape[0]
-        obj_ids = np.arange(self.obj_id, self.obj_id + num_boxes).reshape(-1, 1)
-        flags = np.ones((num_boxes, 1), dtype=int)
+policy_meta = {}
+# 创建包含 NumPy 数组的列表
+policy_meta['outputs'] = np.array([np.array([1, 2, 3, 4]), np.array([4, 5, 6, 7]), np.array([7, 8, 9, 10])])
+policy_meta['frame_id'] = 0
 
-        out[0] = np.hstack((out[0], obj_ids, flags))
-        self.obj_id += num_boxes
+# 调用函数来修改这些数组
+modify_arrays(policy_meta['outputs'], policy_meta['frame_id'])
 
-        return out
-
-# Example usage
-my_class_instance = MyClass()
-out = [np.array([[1155.67578, 369.330475, 1181.67188, 432.735565, 0.510618448],
-                 [1121.50415, 396.891724, 1138.93677, 439.410461, 0.122925006]], dtype=np.float32)]
-out_modified = [my_class_instance.add_obj_id_and_flag(out)]
-
-print(out_modified[0][0][:, :4].astype(np.int32))
+# 输出修改后的列表
+print("Modified arrays:", policy_meta['outputs'], policy_meta['frame_id'])

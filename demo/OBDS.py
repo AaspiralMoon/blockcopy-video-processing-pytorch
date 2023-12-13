@@ -209,7 +209,7 @@ def OBDS_single(img_curr, block_ref, bbox_prev):
     
     costs[:] = 65537
 
-    bboxCurr = np.array([x, y, x+blockW, y+blockH, conf, id, 0])     # [x1, y1, x2, y2, conf, id, flag]
+    bboxCurr = np.array([x, y, x+blockW, y+blockH, conf, id, cost])     # [x1, y1, x2, y2, conf, id, MAD]
 
     return bboxCurr
 

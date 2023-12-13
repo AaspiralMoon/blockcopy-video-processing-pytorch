@@ -87,8 +87,10 @@ class PolicyNet(nn.Module):
             assert frame.dim() == 4
             assert frame.size(1) == 3
 
-            input_features.append(F.interpolate(frame, scale_factor=self.scale_factor, mode="nearest").float())
-
+            frame_resized = F.interpolate(frame, scale_factor=self.scale_factor, mode="nearest").float()   
+            input_features.append(frame_resized)
+            policy_meta["inputs_resized"] = frame_resized.cpu().numpy()        # add resized frame for OBDS acceleration
+            
             if self.use_frame_state:
                 # frame state (last executed frame per block)
                 frame_state = policy_meta["frame_state"]
