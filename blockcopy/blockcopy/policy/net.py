@@ -120,7 +120,7 @@ class PolicyNet(nn.Module):
 
         assert logits.shape == (
             N,
-            1,
+            3,
             H // self.block_size,
             W // self.block_size,
         ), f"logits shape: {logits.shape}, frame shape: {(N, C, H, W)}, block size: {self.block_size}"

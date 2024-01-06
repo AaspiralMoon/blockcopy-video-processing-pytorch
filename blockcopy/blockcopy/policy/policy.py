@@ -87,11 +87,14 @@ class PolicyStats:
 
     def add_policy_meta(self, policy_meta: dict) -> dict:
         grid = policy_meta["grid"]
-        num_exec = int(grid.sum())
+        # num_exec = int(grid.sum())
+        num_exec = torch.sum(grid == 1)      # executed by sparse CNN
+        num_est = torch.sum(grid == 2)       # estimated by OBDS
         num_total = int(grid.numel())
         policy_meta["num_exec"] = num_exec
+        policy_meta["num_est"] = num_est
         policy_meta["num_total"] = num_total
-        policy_meta["perc_exec"] = float(num_exec) / num_total
+        policy_meta["perc_exec"] = float(num_exec + 0.1*num_est) / num_total
 
         self.count_images += grid.size(0)
         self.exec += num_exec
@@ -323,7 +326,7 @@ class PolicyTrainRL(Policy, metaclass=abc.ABCMeta):
         if policy_meta["outputs"] is None:
             # if no temporal history, execute all
             G = (H // self.block_size, W // self.block_size)
-            grid = torch.ones((N, 3, G[0], G[1]), device=policy_meta["inputs"].device, dtype=torch.bool)  # bool?
+            grid = torch.ones((N, 1, G[0], G[1]), device=policy_meta["inputs"].device, dtype=torch.bool)  # bool?
             policy_meta["grid"] = grid
         else:
             # execute policy net
@@ -376,10 +379,10 @@ class PolicyTrainRL(Policy, metaclass=abc.ABCMeta):
 
         grid = policy_meta["grid"]
         assert grid.dim() == 4
-        block_use = policy_meta["perc_exec"]
+        block_use = policy_meta["perc_exec"]                             # add block use to handle action 2
         if self.running_cost is None:
             self.running_cost = block_use
-        self.running_cost = self.running_cost * self.momentum + (1 - self.momentum) * block_use
+        self.running_cost = self.running_cost * self.momentum + (1 - self.momentum) * block_use              # use momentum
 
         if policy_meta["outputs_prev"] is not None and train:
             with torch.enable_grad():
@@ -387,12 +390,13 @@ class PolicyTrainRL(Policy, metaclass=abc.ABCMeta):
                 ig = self._get_information_gain(policy_meta)
                 policy_meta["information_gain"] = ig
                 reward_complexity_weighted = self._get_reward_complexity(policy_meta) * self.complexity_weight_gamma
-                reward = ig + reward_complexity_weighted
+                # reward = ig + reward_complexity_weighted
+                reward = ig + torch.where(grid == 2, 0.1 * reward_complexity_weighted, reward_complexity_weighted)   # add discount=0.1 to the running cost of OBDS blocks
                 assert reward.dim() == 4
                 assert not torch.any(torch.isnan(reward))
                 log_probs = policy_meta["grid_log_probs"]
                 reward = F.adaptive_max_pool2d(reward, output_size=log_probs.shape[2:])
-                reward[~grid] = -reward[~grid]
+                reward[~grid] = -reward[~grid]                                                     # change to 0,1,2 version
                 loss = -log_probs * reward.detach()
                 loss_policy = loss.mean()
                 assert not torch.isnan(loss_policy)

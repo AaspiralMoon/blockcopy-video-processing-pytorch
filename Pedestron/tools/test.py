@@ -74,18 +74,28 @@ import random
 
 import numpy as np
 
-def modify_arrays(outputs, frame_id):
-    frame_id = frame_id + 1
-    outputs = outputs[:, :3]
-    print(outputs)
+# def modify_arrays(outputs, frame_id):
+#     frame_id = frame_id + 1
 
-policy_meta = {}
-# 创建包含 NumPy 数组的列表
-policy_meta['outputs'] = np.array([np.array([1, 2, 3, 4]), np.array([4, 5, 6, 7]), np.array([7, 8, 9, 10])])
-policy_meta['frame_id'] = 0
+# policy_meta = {}
+# policy_meta['frame_id'] = 0
 
-# 调用函数来修改这些数组
-modify_arrays(policy_meta['outputs'], policy_meta['frame_id'])
+# # 调用函数来修改这些数组
+# modify_arrays(policy_meta['frame_id'])
 
-# 输出修改后的列表
-print("Modified arrays:", policy_meta['outputs'], policy_meta['frame_id'])
+# # 输出修改后的列表
+# print("Modified arrays:", policy_meta['frame_id'])
+
+# def func(policy_meta):
+#     outputs = policy_meta['outputs']
+import torch
+
+# Define the tensors and values
+ig = torch.tensor([[0.1, 0.2], [0.3, 0.4]])
+grid = torch.tensor([[1, 2], [0, 1]])
+reward_complexity_weighted = 0.5  # This is a scalar value
+discount = 0.1  # Discount factor for when grid == 2
+
+# Apply the conditional reward
+reward = ig + torch.where(grid == 2, discount * reward_complexity_weighted, reward_complexity_weighted)
+print(reward)

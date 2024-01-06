@@ -95,11 +95,11 @@ def build_instance_mask_iou_gain(bbox_results, bbox_results_prev, bbox_results_r
                     if iou > best_iou:
                         best_iou = iou
                         best_idx = idx_prev
-                matched_prevs.add(best_idx)
                 ig = torch.tensor(1 - best_iou, device=device)
                 x1, y1, x2, y2 = bbox
                 mask[0, 0, y1:y2, x1:x2] = torch.max(mask[0, 0, y1:y2, x1:x2], ig*float(score))
                 if best_idx is not None:
+                    matched_prevs.add(best_idx)
                     x1, y1, x2, y2 = bbox_results_prev[best_idx]
                     score_prev = bbox_scores_prev[best_idx]
                     flag_prev = bbox_flags_prev[best_idx]
