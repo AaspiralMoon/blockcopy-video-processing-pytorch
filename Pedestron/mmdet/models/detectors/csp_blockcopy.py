@@ -100,7 +100,7 @@ class CSPBlockCopy(CSP):
 
                 # get frame state (latest executed frame per block)
                 self.policy_meta['frame_state'] = x.combine_().to_tensor()
-                
+
                 # run model
                 x = self.extract_feat(x)
                 outs = self.bbox_head(x)
