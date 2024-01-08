@@ -62,14 +62,18 @@ class CSPBlockCopy(CSP):
         return outputs_ref
     
     def update_frame_state(self) -> torch.Tensor:
-        frame_state_updated = self.policy_meta['frame_state'].squeeze(0).permute(1, 2, 0).numpy()
+        frame_state = self.policy_meta['frame_state']
+        outputs_OBDS = self.policy_meta['outputs_OBDS']
+        outputs_ref = self.policy_meta['outputs_ref']
+        
+        frame_state_updated = frame_state.squeeze(0).numpy()
 
-        for box in self.policy_meta['outputs_OBDS']:
+        for box in outputs_OBDS:
             x1, y1, x2, y2, _, obj_id, _ = box
-            obj_data = self.policy_meta['outputs_ref'][obj_id]['data']
-            frame_state_updated[y1:y2, x1:x2, :] = obj_data           # check 0-255 or 0-1, RGB or BGR
+            obj_data = outputs_ref[obj_id]['data']
+            frame_state_updated[:, y1:y2, x1:x2] = obj_data           # check 0-255 or 0-1, RGB or BGR
 
-        frame_state_updated = torch.from_numpy(frame_state_updated).permute(2, 0, 1).unsqueeze(0).to(dtype=self.policy_meta['frame_state'].dtype)
+        frame_state_updated = torch.from_numpy(frame_state_updated).unsqueeze(0).to(dtype=frame_state.dtype)
 
         return frame_state_updated
     
@@ -88,7 +92,7 @@ class CSPBlockCopy(CSP):
                 out = self.policy_meta['outputs']
             else:
                 # convert inputs into tensorwrapper object
-                x = blockcopy.to_tensorwrapper(img)
+                x = blockcopy.to_tensorwrapper(img)       # img: [1, 3, 1024, 2048], torch
 
                 # set meta from previous run to integrate temporal aspects
                 self.block_temporal_features = x.process_temporal_features(self.block_temporal_features)

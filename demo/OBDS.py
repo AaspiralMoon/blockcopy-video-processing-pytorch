@@ -246,6 +246,7 @@ if __name__ == "__main__":
     for i in range(0, len(image_list)):
         new_box_list = []
         img_curr = cv2.imread(osp.join(image_path, image_list[i]))
+        print(img_curr.shape)
         img_curr = cv2.resize(img_curr, (2048, 1024)) if img_curr.shape[1] != 2048 or img_curr.shape[0] != 1024 else img_curr
         policy_meta['inputs'] = img_curr
         img_curr_copy = img_curr.copy()
