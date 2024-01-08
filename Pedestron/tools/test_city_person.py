@@ -77,11 +77,14 @@ def single_gpu_test(model, data_loader, show=False, save_img=False, save_img_dir
                         frame = frame.float().numpy()/255
                         frame = rescale_func(frame)
                         frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+                        frame_file = save_img_dir + '/' + str(num_images)+'_frame.jpg'
+                        print(f"Saving grid result to {frame_file}")
+                        assert cv2.imwrite(frame_file, frame*255)
                         
                         # plot frame state
                         frame_state = policy_meta['frame_state']
                         if frame_state is not None:
-                            frame_state = frame_state.cpu().squeeze(0).permute(1,2,0).mul_(torch.tensor(dataset.img_norm_cfg.std)).add_(torch.tensor(dataset.img_norm_cfg.mean))
+                            frame_state = frame_state.cpu().squeeze(0).permute(1,2,0).mul_(torch.tensor(dataset.img_norm_cfg.std)).add_(torch.tensor(dataset.img_norm_cfg.mean)) # 1, 3, H, W -> H, W, 3
                             frame_state = frame_state.float().numpy()
                             frame_state = cv2.cvtColor(frame_state, cv2.COLOR_RGB2BGR)
                             frame_state_file = save_img_dir + '/' + str(num_images)+'_frame_state.jpg'
