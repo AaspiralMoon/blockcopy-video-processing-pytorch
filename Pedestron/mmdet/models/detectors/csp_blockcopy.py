@@ -91,7 +91,8 @@ class CSPBlockCopy(CSP):
                 
                 # convert inputs into tensorwrapper object
                 x = blockcopy.to_tensorwrapper(img)
-
+                print('img: ', img)
+                
                 # set meta from previous run to integrate temporal aspects
                 self.block_temporal_features = x.process_temporal_features(self.block_temporal_features)
                 
@@ -100,7 +101,8 @@ class CSPBlockCopy(CSP):
 
                 # get frame state (latest executed frame per block)
                 self.policy_meta['frame_state'] = x.combine_().to_tensor()
-
+                print('Frame state: ', self.policy_meta['frame_state'])
+                
                 # run model
                 x = self.extract_feat(x)
                 outs = self.bbox_head(x)
