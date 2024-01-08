@@ -91,7 +91,7 @@ class CSPBlockCopy(CSP):
                 
                 # convert inputs into tensorwrapper object
                 x = blockcopy.to_tensorwrapper(img)
-                print('img: ', img)
+                print('img: ', img.shape)
                 
                 # set meta from previous run to integrate temporal aspects
                 self.block_temporal_features = x.process_temporal_features(self.block_temporal_features)
