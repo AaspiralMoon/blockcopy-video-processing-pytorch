@@ -60,7 +60,23 @@ class CSPBlockCopy(CSP):
                                   }
             self.obj_id += 1
         return outputs_ref
-        
+    
+    def update_frame_state(self) -> torch.Tensor:
+        frame_state = self.policy_meta['frame_state'].clone()
+        outputs_OBDS = self.policy_meta['outputs_OBDS']
+        outputs_ref = self.policy_meta['outputs_ref']
+
+        frame_state_updated = frame_state.squeeze(0).permute(1, 2, 0).numpy()
+
+        for box in outputs_OBDS:
+            x1, y1, x2, y2, _, obj_id, _ = box
+            obj_data = outputs_ref[obj_id]['data']
+            frame_state_updated[y1:y2, x1:x2, :] = obj_data           # check 0-255 or 0-1, RGB or BGR
+
+        frame_state_updated = torch.from_numpy(frame_state_updated).permute(2, 0, 1).unsqueeze(0).to(dtype=frame_state.dtype)
+
+        return frame_state_updated
+    
     def simple_test(self, img, img_meta, rescale=False):
         # run policy
         self.policy_meta['inputs'] = img
@@ -109,7 +125,7 @@ class CSPBlockCopy(CSP):
                     self.policy_meta['outputs_OBDS'] = out_OBDS
                     
                     # update frame state
-                    self.policy_meta['frame_state'] = self.update_frame_state(self.policy_meta)
+                    self.policy_meta['frame_state'] = self.update_frame_state()
                 
                 
             # keep previous outputs for policy
