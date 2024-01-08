@@ -18,8 +18,10 @@ policy_meta['grid'] = booltensor, shape=[1, 1, 8, 16]
 # Pedestron/mmdet/models/detectors/csp_blockcopy.py: line 99
 
 policy_meta['ref_det']
-OBDS_bbox = [x1, y1, x2, y2, score, id, flag]
+OBDS_bbox = [x1, y1, x2, y2, score, id, flag/mAD]
 
 5. frame state update
 # Pedestron/mmdet/models/detectors/csp_blockcopy.py
 # Pedestron/mmdet/models/detectors/csp_blockcopy.py: line 102
+
+frame_state and img are normalized
