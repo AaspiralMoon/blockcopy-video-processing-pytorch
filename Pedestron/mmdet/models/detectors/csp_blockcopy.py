@@ -91,7 +91,6 @@ class CSPBlockCopy(CSP):
                 
                 # convert inputs into tensorwrapper object
                 x = blockcopy.to_tensorwrapper(img)
-                print('img: ', img.shape)
                 
                 # set meta from previous run to integrate temporal aspects
                 self.block_temporal_features = x.process_temporal_features(self.block_temporal_features)
@@ -101,7 +100,6 @@ class CSPBlockCopy(CSP):
 
                 # get frame state (latest executed frame per block)
                 self.policy_meta['frame_state'] = x.combine_().to_tensor()
-                print('Frame state: ', self.policy_meta['frame_state'])
                 
                 # run model
                 x = self.extract_feat(x)
@@ -119,6 +117,7 @@ class CSPBlockCopy(CSP):
             # keep previous outputs for policy
             self.policy_meta['outputs_prev'] = self.policy_meta['outputs']
             self.policy_meta['outputs'] = out
+            print('csp_out: ', out)
 
         with timings.env('blockcopy/policy_optim', 3):
             if self.policy is not None:

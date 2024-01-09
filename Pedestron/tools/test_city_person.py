@@ -22,6 +22,8 @@ from mmdet.models import build_detector
 
 from tools.cityPerson.eval_demo import validate
 
+# python ./tools/test_city_person.py configs/elephant/cityperson/csp_r50_clip_blockcopy_030.py ./checkpoints/csp/epoch_ 72 73 --out results/test.json  --save_img --save_img_dir output/test --num-clips-warmup 400 --num-clips-eval -1
+
 def single_gpu_test(model, data_loader, show=False, save_img=False, save_img_dir='', args=None, limit=-1):
     model.eval()
     static = not hasattr(model.module, 'is_blockcopy_manager')
@@ -44,7 +46,6 @@ def single_gpu_test(model, data_loader, show=False, save_img=False, save_img_dir
                 result = model(return_loss=False, rescale=not show, **data)
                 num_images += 1
             results.append(result)
-
         else:
             # remove tmeporal information for new clip
             if not static:
@@ -80,7 +81,7 @@ def single_gpu_test(model, data_loader, show=False, save_img=False, save_img_dir
                         frame_file = save_img_dir + '/' + str(num_images)+'_frame.jpg'
                         print(f"Saving grid result to {frame_file}")
                         assert cv2.imwrite(frame_file, frame*255)
-                        
+                        print('outputs: ', result)
                         # plot frame state
                         frame_state = policy_meta['frame_state']
                         if frame_state is not None:
@@ -126,7 +127,6 @@ def single_gpu_test(model, data_loader, show=False, save_img=False, save_img_dir
                                     t *= 255/t.max()
                             t = t.astype(np.uint8)
                             assert cv2.imwrite(ig_path, t)
-                        
             results.append(result)
 
 
@@ -315,7 +315,6 @@ def main():
             print('# ----------- warmup ---------- #')
             # _, _ = single_gpu_test(model, data_loader_warmup, False, False, '', args, limit=args.num_clips_warmup)
             _, _ = single_gpu_test(model, data_loader_warmup, False, True, args.save_img_dir, args, limit=args.num_clips_warmup)
-            
             
             print('# -----------  eval  ---------- #')
             if args.fast:
