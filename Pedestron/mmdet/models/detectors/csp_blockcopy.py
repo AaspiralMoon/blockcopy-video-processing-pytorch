@@ -115,18 +115,20 @@ class CSPBlockCopy(CSP):
                     for det_bboxes, det_labels in bbox_list
                 ]
                 
+                # new added
                 self.policy_meta['frame_id'] = self.clip_length
-                if self.policy_meta['outputs'] is None:        # process the first frame entirely
+                if self.policy_meta['outputs'] is None:        # set the results of the first frame as reference
                     self.policy_meta['outputs_ref'] = self.get_outputs_ref(out_CNN)               
                 else:
-                    # run OBDS (multi-threading)
-                    out_OBDS = OBDS_run(self.policy_meta, self.policy.block_size)
-                    self.policy_meta['outputs_ref'] = {}
+                    self.policy_meta['outputs_ref'] = self.get_outputs_ref(out_CNN)             # update ref
+                    out_OBDS = OBDS_run(self.policy_meta, self.policy.block_size)              # run OBDS (multi-threading)
                     self.policy_meta['outputs_OBDS'] = out_OBDS
                     
                     # update frame state
                     self.policy_meta['frame_state'] = self.update_frame_state()
-                
+
+                # final outputs are from both CNN and OBDS
+                out = out_CNN + out_OBDS  
                 
             # keep previous outputs for policy
             self.policy_meta['outputs_prev'] = self.policy_meta['outputs']

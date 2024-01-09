@@ -31,7 +31,7 @@ def _checkBounded(xval, yval, w, h, blockW, blockH):
 
 #     return np.array(bboxes)[bbox_indices]
 
-def filter_det(grid, bboxes, block_size):
+def filter_det(grid, bboxes, block_size): 
     # Calculate centers
     centers = ((bboxes[:, 0:2] + bboxes[:, 2:4]) // 2).astype(np.int32)
     
@@ -43,10 +43,9 @@ def filter_det(grid, bboxes, block_size):
     valid_rows = (row_indices >= 0) & (row_indices < grid.shape[0])  # grid: [N, C, H, W]
     valid_cols = (col_indices >= 0) & (col_indices < grid.shape[1])
     valid_indices = valid_rows & valid_cols
-    
+
     # Filter based on grid activation
     bbox_indices = valid_indices & (grid[row_indices, col_indices] == 1)
-
     return bboxes[bbox_indices]
 
 
@@ -214,6 +213,7 @@ def OBDS_single(img_curr, block_ref, bbox_prev):
     return bboxCurr
 
 def OBDS_all(img, outputs_prev, outputs_ref):
+    # img = img.permute(1, 2, 0).cpu().numpy()
     outputs = np.array([OBDS_single(img, outputs_ref[bbox_prev[5]]['data'], bbox_prev) for bbox_prev in outputs_prev])
     return outputs
 
@@ -227,7 +227,7 @@ def OBDS_run(policy_meta, block_size = 128):
     outputs = OBDS_all(img, outputs_prev, outputs_ref)
     outputs = filter_det(grid, outputs, block_size)
     t2 = time.time()
-    print("Filter time: {} ms".format((t2-t1)*1000))
+    print("OBDS time: {} ms".format((t2-t1)*1000))
     return outputs
 
 

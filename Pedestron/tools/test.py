@@ -48,7 +48,7 @@ import random
 # print(grid.bool())
 
 
-# import numpy as np
+import numpy as np
 
 # class MyClass:
 #     def __init__(self):
@@ -66,13 +66,14 @@ import random
 
 # # Example usage
 # my_class_instance = MyClass()
-# out = [np.array([[1155.67578, 369.330475, 1181.67188, 432.735565, 0.510618448],
-#                  [1121.50415, 396.891724, 1138.93677, 439.410461, 0.122925006]], dtype=np.float32)]
+out = [[np.array([[1155.67578, 369.330475, 1181.67188, 432.735565, 0.510618448],
+                 [1121.50415, 396.891724, 1138.93677, 439.410461, 0.122925006]], dtype=np.float32)]]
 # out_modified = [my_class_instance.add_obj_id_and_flag(out)]
 
 # print(out_modified[0][0][:, :4].astype(np.int32))
+print(out[0])
 
-import numpy as np
+# import numpy as np
 
 # def modify_arrays(outputs, frame_id):
 #     frame_id = frame_id + 1
@@ -90,12 +91,12 @@ import numpy as np
 #     outputs = policy_meta['outputs']
 import torch
 
-# Define the tensors and values
-ig = torch.tensor([[0.1, 0.2], [0.3, 0.4]])
-grid = torch.tensor([[1, 2], [0, 1]])
-reward_complexity_weighted = 0.5  # This is a scalar value
-discount = 0.1  # Discount factor for when grid == 2
+# # Define the tensors and values
+# ig = torch.tensor([[0.1, 0.2], [0.3, 0.4]])
+# grid = torch.tensor([[1, 2], [0, 1]])
+# reward_complexity_weighted = 0.5  # This is a scalar value
+# discount = 0.1  # Discount factor for when grid == 2
 
-# Apply the conditional reward
-reward = ig + torch.where(grid == 2, discount * reward_complexity_weighted, reward_complexity_weighted)
-print(reward)
+# # Apply the conditional reward
+# reward = ig + torch.where(grid == 2, discount * reward_complexity_weighted, reward_complexity_weighted)
+# print(reward)
