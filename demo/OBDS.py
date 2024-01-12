@@ -219,7 +219,7 @@ def OBDS_all(img, outputs_prev, outputs_ref):
 
 def OBDS_run(policy_meta, block_size = 128):
     img = policy_meta['inputs']
-    outputs_prev = policy_meta['outputs_prev']
+    outputs_prev = policy_meta['outputs'][0][0]      # Note that when calling OBDS, policy_meta['outputs'] is the output of the previous frame
     outputs_ref = policy_meta['outputs_ref']
     grid = policy_meta['grid']
     t1 = time.time()

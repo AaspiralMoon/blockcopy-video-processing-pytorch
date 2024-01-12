@@ -97,13 +97,18 @@ def single_gpu_test(model, data_loader, show=False, save_img=False, save_img_dir
                         import matplotlib.pyplot as plt
                         grid = policy_meta['grid']
                         grid_file = save_img_dir + '/' + str(num_images)+'_grid.jpg'
-                        t = rescale_func(grid[0,0].float().cpu().numpy())
-                        t = cv2.cvtColor(t*255, cv2.COLOR_GRAY2BGR).astype(np.uint8)
-                        t = cv2.applyColorMap(t, cmapy.cmap('viridis')).astype(np.float32)/255
-                        # t = cv2.cvtColor(t, cv2.COLOR_BGR2RGB)
-                        t = cv2.addWeighted(frame,0.8,t,0.2,0)
+                        grid_rescaled = rescale_func(grid[0,0].float().cpu().numpy())
+                        color_map = {
+                            # 0: [153, 255, 255],
+                            1: [184, 185, 230],
+                            2: [241, 217, 198]
+                        }
+                        grid_colored = np.zeros((grid_rescaled.shape[0], grid_rescaled.shape[1], 3), dtype=np.uint8)
+                        for value, color in color_map.items():
+                            grid_colored[grid_rescaled == value] = color
+                        grid_colored = cv2.addWeighted(frame, 0.8, grid_colored, 0.2, 0)
                         print(f"Saving grid result to {grid_file}")
-                        assert cv2.imwrite(grid_file, t*255)
+                        assert cv2.imwrite(grid_file, grid_colored)
 
                         # plot outut_repr
                         if 'output_repr' in policy_meta:
