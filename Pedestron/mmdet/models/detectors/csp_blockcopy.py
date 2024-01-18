@@ -88,7 +88,7 @@ class CSPBlockCopy(CSP):
     
         with timings.env('blockcopy/model', 3):
             # run model with block-sparse execution
-            if self.policy_meta['num_exec'] == 0:
+            if self.policy_meta['num_exec'] and self.policy_meta['num_est'] == 0:
                 # if no blocks to be executed, just copy outputs
                 self.policy_meta = self.policy_meta.copy()
                 out = self.policy_meta['outputs']

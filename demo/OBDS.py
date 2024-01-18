@@ -3,6 +3,7 @@ import os
 import cv2
 import time
 import os.path as osp
+import torch
 import numpy as np
 from online_yolov5 import yolov5_inference_with_id
 from DS_video_with_detector import mkdir_if_missing
@@ -45,29 +46,33 @@ def filter_det(grid, bboxes, block_size):
     valid_indices = valid_rows & valid_cols
 
     # Filter based on grid activation
-    bbox_indices = valid_indices & (grid[row_indices, col_indices] == 1)
+    bbox_indices = valid_indices & (grid[row_indices, col_indices] != 0)
     return bboxes[bbox_indices]
 
 
-def init_grid(rows, cols, percentage_ones):
-    num_ones = int(rows * cols * percentage_ones)
-    array = np.zeros(rows * cols)
-    array[:num_ones] = 1
-    np.random.shuffle(array)
-    return array.reshape((rows, cols))
+def init_grid(height, width):
+    grid = np.random.choice([0, 1, 2], size=(height, width))
+    return grid
 
-def plot_grid(image, grid, block_size, color=(0, 0, 255), transparency=0.2):
+def plot_grid(image, grid, block_size, color_CNN=(0, 0, 255), color_OBDS=(255, 0, 0), transparency=0.2):
     for row in range(grid.shape[0]):
         for col in range(grid.shape[1]):
             if grid[row, col] == 1:
                 top_left = (col * block_size, row * block_size)
                 bottom_right = (top_left[0] + block_size, top_left[1] + block_size)
                 overlay = image.copy()
-                cv2.rectangle(overlay, top_left, bottom_right, color, -1)
+                cv2.rectangle(overlay, top_left, bottom_right, color_CNN, -1)
+                image = cv2.addWeighted(overlay, transparency, image, 1 - transparency, 0)
+                
+            if grid[row, col] == 2:
+                top_left = (col * block_size, row * block_size)
+                bottom_right = (top_left[0] + block_size, top_left[1] + block_size)
+                overlay = image.copy()
+                cv2.rectangle(overlay, top_left, bottom_right, color_OBDS, -1)
                 image = cv2.addWeighted(overlay, transparency, image, 1 - transparency, 0)
     return image
 
-def plot_bbox(image, bboxes):
+def plot_center(image, bboxes):
     for bbox in bboxes:
         x1, y1, x2, y2, _, _, _ = bbox
         center_x = int((x1 + x2) // 2)
@@ -218,10 +223,10 @@ def OBDS_all(img, outputs_prev, outputs_ref):
     return outputs
 
 def OBDS_run(policy_meta, block_size = 128):
-    img = policy_meta['inputs']
+    img = policy_meta['inputs'].squeeze(0).permute(1, 2, 0).cpu().numpy()
     outputs_prev = policy_meta['outputs'][0][0]      # Note that when calling OBDS, policy_meta['outputs'] is the output of the previous frame
     outputs_ref = policy_meta['outputs_ref']
-    grid = policy_meta['grid']
+    grid = policy_meta['grid_triple'].squeeze(0).squeeze(0).cpu().numpy()
     t1 = time.time()
     outputs_prev = filter_det(grid, outputs_prev, block_size)
     outputs = OBDS_all(img, outputs_prev, outputs_ref)
@@ -235,39 +240,38 @@ if __name__ == "__main__":
     image_path = "/home/wiser-renjie/remote_datasets/yolov5_images/highway"
     image_list = os.listdir(image_path)
     image_list = sorted(image_list)
-    image_list = image_list[:20]
+    image_list = image_list[:40]
     save_path = '/home/wiser-renjie/projects/blockcopy/demo/results/highway3'
     mkdir_if_missing(save_path)
     interval = 20
 
     policy_meta = {}
-    grid = init_grid(8, 16, 0.70)
-    policy_meta['grid'] = grid
+    grid_original = init_grid(8, 16)
+    grid = torch.from_numpy(grid_original).unsqueeze(0).unsqueeze(0).cuda()
+    policy_meta['grid_triple'] = grid
     for i in range(0, len(image_list)):
         new_box_list = []
-        img_curr = cv2.imread(osp.join(image_path, image_list[i]))
-        print(img_curr.shape)
-        img_curr = cv2.resize(img_curr, (2048, 1024)) if img_curr.shape[1] != 2048 or img_curr.shape[0] != 1024 else img_curr
-        policy_meta['inputs'] = img_curr
-        img_curr_copy = img_curr.copy()
-        img_curr_copy = plot_grid(img_curr_copy, grid, 128)
+        img_original = cv2.imread(osp.join(image_path, image_list[i]))
+        img_original = cv2.resize(img_original, (2048, 1024)) if img_original.shape[1] != 2048 or img_original.shape[0] != 1024 else img_original
+        img_original_copy = img_original.copy()
+        img_original_copy = plot_grid(img_original_copy, grid_original, 128)
+        img = torch.from_numpy(img_original).permute(2, 0, 1).float().unsqueeze(0).cuda()
+        policy_meta['inputs'] = img
         if i % interval == 0: 
             print("Running Yolov5...")
             img_ref = cv2.imread(osp.join(image_path, image_list[i]))
-            ref_box_list, ref_dict = yolov5_inference_with_id(img_curr, img_id=i)
+            ref_box_list, ref_dict = yolov5_inference_with_id(img_original, img_id=i)
             policy_meta['outputs_ref'] = ref_dict
             prev_box_list = ref_box_list
-            policy_meta['outputs_prev'] = prev_box_list
+            policy_meta['outputs'] = [[prev_box_list]]
             for j, ref_box in enumerate(ref_box_list):
-                cv2.rectangle(img_curr_copy, (ref_dict[j]['bbox'][0], ref_dict[j]['bbox'][1]), (ref_dict[j]['bbox'][2], ref_dict[j]['bbox'][3]), color=(255, 0, 0), thickness=2)
+                cv2.rectangle(img_original_copy, (ref_dict[j]['bbox'][0], ref_dict[j]['bbox'][1]), (ref_dict[j]['bbox'][2], ref_dict[j]['bbox'][3]), color=(255, 0, 0), thickness=2)
         else:
             new_box_list = OBDS_run(policy_meta)
-            # new_box_list, _ = yolov5_inference_with_id(img_curr, img_id=i)
-            img_curr_copy = plot_bbox(img_curr_copy, new_box_list)
-            new_box_list = filter_det(grid, new_box_list, block_size=128)
-            policy_meta['outputs_prev'] = new_box_list
+            img_original_copy = plot_center(img_original_copy, new_box_list)
+            policy_meta['outputs'] = [[new_box_list]]
             for new_box in new_box_list:
-                cv2.rectangle(img_curr_copy, (int(new_box[0]), int(new_box[1])), (int(new_box[2]), int(new_box[3])), color=(0, 0, 255), thickness=2)
+                cv2.rectangle(img_original_copy, (int(new_box[0]), int(new_box[1])), (int(new_box[2]), int(new_box[3])), color=(0, 0, 255), thickness=2)
             prev_box_list = new_box_list
-        cv2.imwrite(osp.join(save_path, '{}'.format(image_list[i])), img_curr_copy)
+        cv2.imwrite(osp.join(save_path, '{}'.format(image_list[i])), img_original_copy)
 

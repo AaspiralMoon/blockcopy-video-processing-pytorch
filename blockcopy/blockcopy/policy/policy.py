@@ -346,7 +346,7 @@ class PolicyTrainRL(Policy, metaclass=abc.ABCMeta):
 
                 if self.at_least_one and grid.sum() == 0:
                     # if no blocks executed, execute a single one
-                    grid[0, 0, 0, 0] = 1             # B, C, H, W.       C=0: non-executed, C=1: CNN, C=2: OBDS
+                    grid[0, 0, 0, 0] = 1             # N, 1, H, W.       0: non-executed, 1: CNN, 2: OBDS
 
                 grid = self.stochastic_explore(grid)
 
@@ -359,7 +359,8 @@ class PolicyTrainRL(Policy, metaclass=abc.ABCMeta):
 
                 policy_meta["grid_log_probs"] = grid_log_probs
                 policy_meta["grid_probs"] = grid_probs
-                policy_meta["grid"] = grid.bool()             # this step needs to modify for three actions
+                policy_meta["grid"] = grid == 1     # 1 = True, 0, 2 = False
+                policy_meta["grid_triple"] = grid   # include 0, 1, 2       
         policy_meta = self.stats.add_policy_meta(policy_meta)
         return policy_meta
 

@@ -47,9 +47,8 @@ import random
 # grid = grid.view(B, 1, H, W)
 # grid = stochastic_explore(grid)
 # print(grid)
+# print(~grid)
 # print(grid.bool())
-
-
 
 # class MyClass:
 #     def __init__(self):
@@ -101,34 +100,44 @@ import random
 # reward = ig + torch.where(grid == 2, discount * reward_complexity_weighted, reward_complexity_weighted)
 # print(reward)
 
-import cv2
-import numpy as np
+# import cv2
+# import numpy as np
 
-rescale_func = lambda x: cv2.resize(x, dsize=(1024, 512), interpolation=cv2.INTER_NEAREST)
+# rescale_func = lambda x: cv2.resize(x, dsize=(1024, 512), interpolation=cv2.INTER_NEAREST)
 
-# 从本地读取 frame 图像
-frame = cv2.imread('/home/wiser-renjie/remote_datasets/cityscapes/leftImg8bit_sequence/train/aachen/aachen_000000_000000_leftImg8bit.png')  # 替换为实际图像的路径
-frame = rescale_func(frame)
-# 随机初始化一个包含 0, 1, 2 的 grid 矩阵
-grid = np.random.choice([0, 1, 2], size=(8, 16))  # 随机选择 0, 1, 2
-grid = rescale_func(grid)
+# # 从本地读取 frame 图像
+# frame = cv2.imread('/home/wiser-renjie/remote_datasets/cityscapes/leftImg8bit_sequence/train/aachen/aachen_000000_000000_leftImg8bit.png')  # 替换为实际图像的路径
+# frame = rescale_func(frame)
+# # 随机初始化一个包含 0, 1, 2 的 grid 矩阵
+# grid = np.random.choice([0, 1, 2], size=(8, 16))  # 随机选择 0, 1, 2
+# grid = rescale_func(grid)
 
-# 定义颜色
-color_map = {
-    # 0: [153, 255, 255],  # 淡黄色
-    1: [184, 185, 230],  # 淡红色
-    2: [241, 217, 198]   # 淡蓝色
-}
+# # 定义颜色
+# color_map = {
+#     # 0: [153, 255, 255],  # 淡黄色
+#     1: [184, 185, 230],  # 淡红色
+#     2: [241, 217, 198]   # 淡蓝色
+# }
 
-# 创建一个空的彩色图像
-colored_grid = np.zeros((grid.shape[0], grid.shape[1], 3), dtype=np.uint8)
+# # 创建一个空的彩色图像
+# colored_grid = np.zeros((grid.shape[0], grid.shape[1], 3), dtype=np.uint8)
 
-# 应用颜色映射
-for value, color in color_map.items():
-    colored_grid[grid == value] = color
+# # 应用颜色映射
+# for value, color in color_map.items():
+#     colored_grid[grid == value] = color
 
-# 叠加到原始图像
-t = cv2.addWeighted(frame, 0.8, colored_grid, 0.2, 0)
+# # 叠加到原始图像
+# t = cv2.addWeighted(frame, 0.8, colored_grid, 0.2, 0)
 
-# 保存或显示结果
-cv2.imwrite('output.jpg', t)  # 保存结果
+# # 保存或显示结果
+# cv2.imwrite('output.jpg', t)  # 保存结果
+
+tensor = torch.tensor([[0, 1, 2], [1, 0, 2], [2, 1, 0]])
+
+# 将 tensor 转换为 bool tensor，其中 1 为 True，0 和 2 为 False
+bool_tensor = tensor == 1
+grid = tensor
+# grid = torch.ones((3, 3), dtype=torch.bool)
+# # 输出 bool_tensor
+print(bool_tensor)
+print(grid)
