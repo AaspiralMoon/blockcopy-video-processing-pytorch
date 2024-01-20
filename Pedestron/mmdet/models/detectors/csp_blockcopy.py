@@ -102,8 +102,8 @@ class CSPBlockCopy(CSP):
                 self.policy_meta['frame_state'] = x.combine_().to_tensor()
                 
                 # run model
-                x = self.extract_feat(x)
-                outs = self.bbox_head(x)
+                x = self.extract_feat(x)    # x: tuple, len(x[0]) = num_exec, x[0][0].shape = [768, 32, 32]
+                outs = self.bbox_head(x)       # outs: tuple, len = 3, outs[0][0] = [1, 1, 256, 512]
                 bbox_inputs = outs + (img_meta, self.test_cfg, rescale)
                 if self.return_feature_maps:
                     return self.bbox_head.get_bboxes_features(*bbox_inputs)
@@ -117,7 +117,6 @@ class CSPBlockCopy(CSP):
             # keep previous outputs for policy
             self.policy_meta['outputs_prev'] = self.policy_meta['outputs']
             self.policy_meta['outputs'] = out
-            print('csp_out: ', out)
 
         with timings.env('blockcopy/policy_optim', 3):
             if self.policy is not None:

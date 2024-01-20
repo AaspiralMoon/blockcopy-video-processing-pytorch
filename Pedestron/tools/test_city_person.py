@@ -81,7 +81,6 @@ def single_gpu_test(model, data_loader, show=False, save_img=False, save_img_dir
                         frame_file = save_img_dir + '/' + str(num_images)+'_frame.jpg'
                         print(f"Saving grid result to {frame_file}")
                         assert cv2.imwrite(frame_file, frame*255)
-                        print('outputs: ', result)
                         # plot frame state
                         frame_state = policy_meta['frame_state']
                         if frame_state is not None:

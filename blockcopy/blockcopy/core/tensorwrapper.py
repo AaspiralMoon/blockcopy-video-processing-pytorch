@@ -67,7 +67,7 @@ def to_tensor(x: TensorWrapper) -> torch.Tensor:
 
 
 OPS = {
-    # list of operations having padding - requires filling in zero-paddign with propagated features from the previousf rame
+    # list of operations having padding - requires filling in zero-padding with propagated features from the previous frame
     "PADDED": set(["conv2d", "max_pool2d", "avg_pool2d", "lp_pool2d", "fractional_max_pool2d"]),
     # list of interpolate operations (might require workaround for speed with bilinear interpolation)
     "INTERPOLATE": set(["interpolate", "upsample_bilinear"]),
@@ -556,12 +556,10 @@ class TensorWrapper(torch.Tensor):
                 data_transfer = torch.empty((0, C, H, W), dtype=data.dtype, device=self.device)
             # store the curent data and transferrd data
             self._features.store_features(data, data_transfer, padding)
-
             grid_idx = self.get_grid_idx()
             mapping_exec = self.get_mapping_exec()
             with timings.env("tensorwrapper/pad", 10):
                 args[0] = pad(data, data_transfer, grid_idx, mapping_exec, padding)  # manually pad
-
             if "padding" in kwargs:
                 kwargs["padding"] = zeros
             else:
