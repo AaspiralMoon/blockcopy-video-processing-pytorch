@@ -99,7 +99,7 @@ class CSPBlockCopy(CSP):
                 x = x.to_blocks(self.policy_meta['grid'])
 
                 # get frame state (latest executed frame per block)
-                self.policy_meta['frame_state'] = x.combine_().to_tensor()
+                self.policy_meta['frame_state'] = x.combine_().to_tensor()        # torch.Size([1, 3, 1024, 2048])
                 
                 # run model
                 x = self.extract_feat(x)    # x: tuple, len(x[0]) = num_exec, x[0][0].shape = [768, 32, 32]

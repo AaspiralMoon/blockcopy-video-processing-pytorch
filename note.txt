@@ -1,0 +1,34 @@
+1. sigmoid -> softmax (Done)
+# blockcopy/blockcopy/policy/net.py: line 55
+# blockcopy/blockcopy/policy/policy.py: line 327
+
+2. stochastic sampling (Done)
+# blockcopy/blockcopy/policy/policy.py: line 130
+
+verify: 1) execute 64 always vs. execute 60-63 randomly
+
+
+3. information gain, reward
+# blockcopy/blockcopy/policy/information_gain.py: line 68
+
+policy_meta['output'] = np.array[[x1, y1, x2, y2, score], [x1, y1, x2, y2, score], ...]
+policy_meta['grid'] = booltensor, shape=[1, 1, 8, 16]
+
+out:  [[array([[1.15567603e+03, 3.69331177e+02, 1.18167163e+03, 4.32735107e+02,
+        5.10575712e-01],
+       [1.13253503e+03, 3.93939789e+02, 1.15137585e+03, 4.39893219e+02,
+        1.17636457e-01],
+       [1.02752429e+03, 1.52129364e+02, 1.04826233e+03, 2.02709656e+02,
+        1.16608776e-01]], dtype=float32)]]
+
+4. combine OBDS into pipeline, disable the features of blue blocks
+# Pedestron/mmdet/models/detectors/csp_blockcopy.py: line 99
+
+policy_meta['ref_det']
+OBDS_bbox = [x1, y1, x2, y2, score, id, flag/mAD]
+
+5. frame state update
+# Pedestron/mmdet/models/detectors/csp_blockcopy.py
+# Pedestron/mmdet/models/detectors/csp_blockcopy.py: line 102
+
+frame_state and img are normalized

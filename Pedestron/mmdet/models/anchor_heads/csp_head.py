@@ -133,8 +133,8 @@ class CSPHead(nn.Module):
         offset_feat = x
 
         for cls_layer in self.cls_convs:
-            cls_feat = cls_layer(cls_feat)
-            cls_feat = blockcopy.to_tensor(cls_feat)
+            cls_feat = cls_layer(cls_feat)                # torch.Size([72, 768, 32, 32]) -> torch.Size([72, 256, 32, 32])
+            cls_feat = blockcopy.to_tensor(cls_feat)      # torch.Size([72, 256, 32, 32]) -> torch.Size([1, 256, 256, 512]) 
         cls_score = self.csp_cls(cls_feat)
 
 
