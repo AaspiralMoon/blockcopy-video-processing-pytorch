@@ -283,6 +283,12 @@ class TensorWrapper(torch.Tensor):
         """
         return self.data_shape[-1] if self.is_blocks else -1
 
+    def set_grid_triple(self, grid_triple: torch.Tensor):
+        self._features._grid_triple = grid_triple.to(self.device, dtype=torch.int32)
+    
+    def get_grid_triple(self) -> torch.Tensor:
+        return self._features._grid_triple
+    
     def get_grid(self) -> torch.BoolTensor:
         """
         Return the bool grid indiciating the executed blocks

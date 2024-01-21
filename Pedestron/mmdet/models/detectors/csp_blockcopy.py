@@ -103,6 +103,8 @@ class CSPBlockCopy(CSP):
                 # convert to blocks with given grid
                 x = x.to_blocks(self.policy_meta['grid'])
 
+                x.set_grid_triple(self.policy_meta['grid_triple'])
+                
                 # get frame state (latest executed frame per block)
                 self.policy_meta['frame_state'] = x.combine_().to_tensor()
                 
