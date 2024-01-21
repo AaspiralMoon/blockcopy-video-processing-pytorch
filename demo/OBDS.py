@@ -32,7 +32,11 @@ def _checkBounded(xval, yval, w, h, blockW, blockH):
 
 #     return np.array(bboxes)[bbox_indices]
 
-def filter_det(grid, bboxes, block_size): 
+def filter_det(grid, bboxes, block_size, value):
+    assert bboxes.size > 0, "bboxes are empty!"
+    
+    bboxes = np.atleast_2d(bboxes)
+    
     # Calculate centers
     centers = ((bboxes[:, 0:2] + bboxes[:, 2:4]) // 2).astype(np.int32)
     
@@ -41,15 +45,39 @@ def filter_det(grid, bboxes, block_size):
     col_indices = centers[:, 0] // block_size
 
     # Check bounds
-    valid_rows = (row_indices >= 0) & (row_indices < grid.shape[0])  # grid: [N, C, H, W]
+    valid_rows = (row_indices >= 0) & (row_indices < grid.shape[0])
     valid_cols = (col_indices >= 0) & (col_indices < grid.shape[1])
     valid_indices = valid_rows & valid_cols
 
     # Filter based on grid activation
-    bbox_indices = valid_indices & (grid[row_indices, col_indices] != 0)
+    bbox_indices = valid_indices & (grid[row_indices, col_indices] == value)
     return bboxes[bbox_indices]
 
+def get_box_grid_idx(boxes, grid_width, block_size=128):
+    boxes = np.atleast_2d(boxes)  # 确保 boxes 是二维的
+    
+    center_x = (boxes[:, 0] + boxes[:, 2]) / 2
+    center_y = (boxes[:, 1] + boxes[:, 3]) / 2
 
+    grid_x = (center_x // block_size).astype(int)
+    grid_y = (center_y // block_size).astype(int)
+
+    grid_index = grid_y * grid_width + grid_x
+    return grid_index
+
+def get_grid_idx(grid, value):
+    rows, cols = np.where(grid == value)
+    indices = rows * grid.shape[1] + cols
+    return indices
+    
+def transfer_prev_OBDS(policy_meta, block_size):
+    grid = policy_meta['grid_triple'].cpu().numpy()
+    outputs_OBDS = policy_meta['outputs_OBDS']
+    box_grid_idx = get_box_grid_idx(outputs_OBDS, grid.shape[1], block_size)
+    grid_idx = get_grid_idx(grid, 0)
+    outputs_OBDS_transfered = outputs_OBDS[np.isin(box_grid_idx, grid_idx)]
+    return outputs_OBDS_transfered
+    
 def init_grid(height, width):
     grid = np.random.choice([0, 1, 2], size=(height, width))
     return grid
@@ -85,7 +113,7 @@ def OBDS_single(img_curr, block_ref, bbox_prev):
     
     x1, y1, x2, y2 = bbox_prev[:4].astype(np.int32)
     
-    conf, id = bbox_prev[4], bbox_prev[5]
+    score, id = bbox_prev[4], bbox_prev[5]
 
     blockW = x2 - x1
     blockH = y2 - y1
@@ -213,7 +241,7 @@ def OBDS_single(img_curr, block_ref, bbox_prev):
     
     costs[:] = 65537
 
-    bboxCurr = np.array([x, y, x+blockW, y+blockH, conf, id, cost])     # [x1, y1, x2, y2, conf, id, MAD]
+    bboxCurr = np.array([x, y, x+blockW, y+blockH, score, id, cost])     # [x1, y1, x2, y2, score, id, MAD]
 
     return bboxCurr
 
@@ -228,9 +256,9 @@ def OBDS_run(policy_meta, block_size = 128):
     outputs_ref = policy_meta['outputs_ref']
     grid = policy_meta['grid_triple'].squeeze(0).squeeze(0).cpu().numpy()
     t1 = time.time()
-    outputs_prev = filter_det(grid, outputs_prev, block_size)
+    outputs_prev = filter_det(grid, outputs_prev, block_size, value=2)
     outputs = OBDS_all(img, outputs_prev, outputs_ref)
-    outputs = filter_det(grid, outputs, block_size)
+    outputs = filter_det(grid, outputs, block_size, value=2)
     t2 = time.time()
     print("OBDS time: {} ms".format((t2-t1)*1000))
     return outputs
@@ -240,16 +268,16 @@ if __name__ == "__main__":
     image_path = "/home/wiser-renjie/remote_datasets/yolov5_images/highway"
     image_list = os.listdir(image_path)
     image_list = sorted(image_list)
-    image_list = image_list[:40]
+    image_list = image_list[:20]
     save_path = '/home/wiser-renjie/projects/blockcopy/demo/results/highway3'
     mkdir_if_missing(save_path)
     interval = 20
 
     policy_meta = {}
-    grid_original = init_grid(8, 16)
-    grid = torch.from_numpy(grid_original).unsqueeze(0).unsqueeze(0).cuda()
-    policy_meta['grid_triple'] = grid
     for i in range(0, len(image_list)):
+        grid_original = init_grid(8, 16)
+        grid = torch.from_numpy(grid_original).unsqueeze(0).unsqueeze(0).cuda()
+        policy_meta['grid_triple'] = grid
         new_box_list = []
         img_original = cv2.imread(osp.join(image_path, image_list[i]))
         img_original = cv2.resize(img_original, (2048, 1024)) if img_original.shape[1] != 2048 or img_original.shape[0] != 1024 else img_original
@@ -268,6 +296,9 @@ if __name__ == "__main__":
                 cv2.rectangle(img_original_copy, (ref_dict[j]['bbox'][0], ref_dict[j]['bbox'][1]), (ref_dict[j]['bbox'][2], ref_dict[j]['bbox'][3]), color=(255, 0, 0), thickness=2)
         else:
             new_box_list = OBDS_run(policy_meta)
+            if i > 1:
+                box_transfered = filter_det(grid_original, policy_meta['outputs'][0][0], block_size=128, value=0)
+                new_box_list = np.vstack([new_box_list, box_transfered])
             img_original_copy = plot_center(img_original_copy, new_box_list)
             policy_meta['outputs'] = [[new_box_list]]
             for new_box in new_box_list:

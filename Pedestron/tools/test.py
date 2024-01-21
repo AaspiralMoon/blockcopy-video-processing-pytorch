@@ -70,8 +70,8 @@ import random
 #                  [1121.50415, 396.891724, 1138.93677, 439.410461, 0.122925006]], dtype=np.float32)]]
 # out2 = np.array([[1155.67578, 369.330475, 1181.67188, 432.735565, 0.510618448],
 #                  [1121.50415, 396.891724, 1138.93677, 439.410461, 0.122925006]], dtype=np.float32)
-# out3 = np.vstack([out[0][0], out2])
-# print([[out3]])
+# out3 = np.vstack([out[0][0][:, :3], out2[:, :3]])
+# out3 = [[out3]]
 
 # import numpy as np
 
@@ -132,12 +132,60 @@ import random
 # # 保存或显示结果
 # cv2.imwrite('output.jpg', t)  # 保存结果
 
-tensor = torch.tensor([[0, 1, 2], [1, 0, 2], [2, 1, 0]])
+# tensor = torch.tensor([[0, 1, 2], [1, 0, 2], [2, 1, 0]])
 
-# 将 tensor 转换为 bool tensor，其中 1 为 True，0 和 2 为 False
-bool_tensor = tensor == 1
-grid = tensor
-# grid = torch.ones((3, 3), dtype=torch.bool)
-# # 输出 bool_tensor
-print(bool_tensor)
-print(grid)
+# # 将 tensor 转换为 bool tensor，其中 1 为 True，0 和 2 为 False
+# bool_tensor = tensor == 1
+# grid = tensor
+# # grid = torch.ones((3, 3), dtype=torch.bool)
+# # # 输出 bool_tensor
+# print(bool_tensor)
+# print(grid)
+
+# def find_grid_for_boxes_vectorized(boxes, grid_width, block_size=128):
+#     center_x = (boxes[:, 0] + boxes[:, 2]) / 2
+#     center_y = (boxes[:, 1] + boxes[:, 3]) / 2
+
+#     grid_x = (center_x // block_size).astype(int)
+#     grid_y = (center_y // block_size).astype(int)
+
+#     grid_index = grid_y * grid_width + grid_x
+#     return grid_index
+
+# # 示例
+
+# boxes = np.array([[1155.67603, 369.331177, 1181.67163, 432.735107, 0.510575712],
+#                   [1132.53503, 393.939789, 1151.37585, 439.893219, 0.117636457],
+#                   [1027.52429, 152.129364, 1048.26233, 202.709656, 0.116608776]],
+#                  dtype=np.float32)
+# grid_indices = find_grid_for_boxes_vectorized(boxes, 16)
+# print(grid_indices)
+
+def find_grid_for_boxes_vectorized(boxes, grid_width, block_size=128):
+    boxes = np.atleast_2d(boxes)  # 确保 boxes 是二维的
+    
+    center_x = (boxes[:, 0] + boxes[:, 2]) / 2
+    center_y = (boxes[:, 1] + boxes[:, 3]) / 2
+
+    grid_x = (center_x // block_size).astype(int)
+    grid_y = (center_y // block_size).astype(int)
+
+    grid_index = grid_y * grid_width + grid_x
+    return grid_index
+
+# 示例：单个检测框
+# single_box = [1155.67603, 369.331177, 1181.67163, 432.735107, 0.510575712]
+# print(find_grid_for_boxes_vectorized(single_box, 16))
+
+# 示例：多个检测框
+multiple_boxes = [[1155.67603, 369.331177, 1181.67163, 432.735107, 0.510575712],
+                  [1132.53503, 393.939789, 1151.37585, 439.893219, 0.117636457]]
+print(find_grid_for_boxes_vectorized(multiple_boxes, 16))
+
+grid = np.random.choice([0, 1, 2], size=(8, 16))
+
+rows, cols = np.where(grid == 0)
+linear_indices = rows * grid.shape[1] + cols
+
+print(linear_indices)
+print(np.isin(find_grid_for_boxes_vectorized(multiple_boxes, 16), linear_indices))

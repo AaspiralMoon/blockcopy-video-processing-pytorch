@@ -51,7 +51,7 @@ class InformationGainObjectDetection(InformationGain):
         
     def forward(self, policy_meta: Dict) -> torch.Tensor:
         N,C,H,W = policy_meta['inputs'].shape
-        return build_instance_mask_iou_gain(policy_meta['outputs'], policy_meta['outputs_prev'], policy_meta['outputs_ref'], policy_meta['inputs_resized'], policy_meta['frame_id'](N, self.num_classes, H, W), device=policy_meta['inputs'].device)
+        return build_instance_mask_iou_gain(policy_meta['outputs'], policy_meta['outputs_prev'], (N, self.num_classes, H, W), device=policy_meta['inputs'].device)
 
 def build_instance_mask(bbox_results: List[List[np.ndarray]], size: tuple, device='cpu') -> torch.Tensor:      # output of the policy input
     mask = torch.zeros(size, device=device)
@@ -65,7 +65,7 @@ def build_instance_mask(bbox_results: List[List[np.ndarray]], size: tuple, devic
             mask[0,c,y1:y2, x1:x2] = torch.max(mask[0,0, y1:y2, x1:x2], score)
     return mask
 
-def build_instance_mask_iou_gain(bbox_results, bbox_results_prev, bbox_results_ref, frame_resized, frame_id, size, device='cpu', SUBSAMPLE=2) -> torch.Tensor:     
+def build_instance_mask_iou_gain(bbox_results, bbox_results_prev, size, device='cpu', SUBSAMPLE=2) -> torch.Tensor:     
     assert len(bbox_results) == 1, "only supports batch size 1"  
     mask = torch.zeros((size[0], size[1], size[2]//SUBSAMPLE, size[3]//SUBSAMPLE), device='cuda')
 
