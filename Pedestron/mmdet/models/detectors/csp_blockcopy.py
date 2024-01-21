@@ -94,10 +94,10 @@ class CSPBlockCopy(CSP):
                 
                 # set meta from previous run to integrate temporal aspects
                 self.block_temporal_features = x.process_temporal_features(self.block_temporal_features)
-                
+
                 # convert to blocks with given grid
                 x = x.to_blocks(self.policy_meta['grid'])
-
+                
                 # get frame state (latest executed frame per block)
                 self.policy_meta['frame_state'] = x.combine_().to_tensor()        # torch.Size([1, 3, 1024, 2048])
                 
