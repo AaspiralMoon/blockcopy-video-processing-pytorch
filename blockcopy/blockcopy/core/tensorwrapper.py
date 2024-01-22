@@ -36,12 +36,12 @@ def to_tensorwrapper(x: torch.Tensor) -> TensorWrapper:
     return x.as_subclass(TensorWrapper)
 
 
-def to_tensor(x: TensorWrapper) -> torch.Tensor:
+def to_tensor(x: TensorWrapper, flag: bool = False) -> torch.Tensor:
     """
     Converts TensorWrapper object or list of TensorWrappers to torch.Tensor
     """
     if isinstance(x, TensorWrapper):
-        return x.to_tensor()
+        return x.to_tensor(flag)
     if isinstance(x, list):
         return [to_tensor(z) for z in x]
     if isinstance(x, tuple):
@@ -49,7 +49,6 @@ def to_tensor(x: TensorWrapper) -> torch.Tensor:
     if isinstance(x, dict):
         return {k: to_tensor(v) for k, v in x.items()}
     return x
-
 
 # def combine(x: TensorWrapper, inplace: bool = False) -> torch.Tensor:
 #     """
@@ -283,10 +282,10 @@ class TensorWrapper(torch.Tensor):
         """
         return self.data_shape[-1] if self.is_blocks else -1
 
-    def set_grid_triple(self, grid_triple: torch.Tensor):
+    def set_grid_triple(self, grid_triple: torch.Tensor):              # added
         self._features._grid_triple = grid_triple.to(self.device, dtype=torch.int32)
     
-    def get_grid_triple(self) -> torch.Tensor:
+    def get_grid_triple(self) -> torch.Tensor:                          # added
         return self._features._grid_triple
     
     def get_grid(self) -> torch.BoolTensor:
@@ -386,12 +385,16 @@ class TensorWrapper(torch.Tensor):
 
             return out
 
-    def to_tensor(self) -> torch.Tensor:
+    def disable_OBDS_block(self, out: torch.Tensor) -> torch.Tensor:      # added
+        out = 1
+        return out
+        
+    def to_tensor(self, flag: bool = False) -> torch.Tensor:
         """
         Convert block-sparse data of self to torch.Tensor
         Combines the blocks into a dense tensor if needed
         """
-        out = self.combine() if self.is_blocks else self
+        out = self.combine(flag=flag) if self.is_blocks else self
         return out.as_subclass(torch.Tensor)
 
     def combine_(self) -> TensorWrapper:
@@ -400,7 +403,7 @@ class TensorWrapper(torch.Tensor):
         """
         return self.combine(inplace=True)
 
-    def combine(self, inplace: bool = False) -> TensorWrapper:
+    def combine(self, inplace: bool = False, flag: bool = False) -> TensorWrapper:
         """
         Combine block-sparse self into dense tensor
         Output values for non-executed are copied from previous frame
@@ -443,11 +446,15 @@ class TensorWrapper(torch.Tensor):
             out = out.as_subclass(TensorWrapper)
             out.__init_metadata(self)
             out._is_blocks = False
-
+            
+            # added
+            if flag:
+                out = self.disable_OBDS_block(out)
+                
             # store the result of this combine, so that next frame can use it
             self._features.store_features_full(out)
             return out
-
+    
     def _transfer_from_prev(self):
         """
         Get features from previous frame for blocks that should be transferred 

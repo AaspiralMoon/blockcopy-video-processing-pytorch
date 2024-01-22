@@ -134,20 +134,20 @@ class CSPHead(nn.Module):
 
         for cls_layer in self.cls_convs:
             cls_feat = cls_layer(cls_feat)
-            cls_feat = blockcopy.to_tensor(cls_feat)
+            cls_feat = blockcopy.to_tensor(cls_feat, flag=True)
         cls_score = self.csp_cls(cls_feat)
 
 
         for reg_layer in self.reg_convs:
             reg_feat = reg_layer(reg_feat)
-            reg_feat = blockcopy.to_tensor(reg_feat)
+            reg_feat = blockcopy.to_tensor(reg_feat, flag=True)
         # scale the bbox_pred of different level
         # float to avoid overflow when enabling FP16
         bbox_pred = reg_scale(self.csp_reg(reg_feat)).float()
 
         for offset_layer in self.offset_convs:
             offset_feat = offset_layer(offset_feat)
-            offset_feat = blockcopy.to_tensor(offset_feat)
+            offset_feat = blockcopy.to_tensor(offset_feat, flag=True)
         offset_pred = offset_scale(self.csp_offset(offset_feat).float())
         return cls_score, bbox_pred, offset_pred
 
