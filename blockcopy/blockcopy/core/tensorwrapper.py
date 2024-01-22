@@ -385,10 +385,16 @@ class TensorWrapper(torch.Tensor):
 
             return out
 
-    def disable_OBDS_block(self, out: torch.Tensor) -> torch.Tensor:      # added
-        out = 1
+    def disable_OBDS_block(out: torch.Tensor, grid_triple: torch.Tensor) -> torch.Tensor:
+        _, _, H, W = out.shape     # out: [1, 256, 256, 512]    # grid_triple: [1, 1, 8, 16]
+        _, _, GH, GW = grid_triple.shape
+        block_size = H / GH
+        for i in range(0, H, block_size):
+            for j in range(0, W, block_size):
+                if grid_triple[0, 0, i // block_size, j // block_size] == 2:
+                    out[:, :, i:i+block_size, j:j+block_size] = 0
         return out
-        
+
     def to_tensor(self, flag: bool = False) -> torch.Tensor:
         """
         Convert block-sparse data of self to torch.Tensor
@@ -442,14 +448,15 @@ class TensorWrapper(torch.Tensor):
             # copy data of block-sparse tensor to dense tensor based on mappings
             out = CombineFunction.apply(self.data, out, grid_idx, mapping_exec)
 
+            # added
+            if flag:
+                grid_triple = self.get_grid_triple()
+                out = self.disable_OBDS_block(out, grid_triple)
+
             # output is again a TensorWrapper object to record metadata
             out = out.as_subclass(TensorWrapper)
             out.__init_metadata(self)
             out._is_blocks = False
-            
-            # added
-            if flag:
-                out = self.disable_OBDS_block(out)
                 
             # store the result of this combine, so that next frame can use it
             self._features.store_features_full(out)

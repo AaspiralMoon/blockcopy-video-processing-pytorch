@@ -32,26 +32,26 @@ def _checkBounded(xval, yval, w, h, blockW, blockH):
 
 #     return np.array(bboxes)[bbox_indices]
 
-def filter_det(grid, bboxes, block_size, value):
-    assert bboxes.size > 0, "bboxes are empty!"
-    
-    bboxes = np.atleast_2d(bboxes)
-    
-    # Calculate centers
-    centers = ((bboxes[:, 0:2] + bboxes[:, 2:4]) // 2).astype(np.int32)
-    
-    # Calculate row and column indices
-    row_indices = centers[:, 1] // block_size
-    col_indices = centers[:, 0] // block_size
+def filter_det(grid, bboxes, block_size=128, value=2):
+    if bboxes.size > 0:
+        bboxes = np.atleast_2d(bboxes)
+        
+        # Calculate centers
+        centers = ((bboxes[:, 0:2] + bboxes[:, 2:4]) // 2).astype(np.int32)
+        
+        # Calculate row and column indices
+        row_indices = centers[:, 1] // block_size
+        col_indices = centers[:, 0] // block_size
 
-    # Check bounds
-    valid_rows = (row_indices >= 0) & (row_indices < grid.shape[0])
-    valid_cols = (col_indices >= 0) & (col_indices < grid.shape[1])
-    valid_indices = valid_rows & valid_cols
+        # Check bounds
+        valid_rows = (row_indices >= 0) & (row_indices < grid.shape[0])
+        valid_cols = (col_indices >= 0) & (col_indices < grid.shape[1])
+        valid_indices = valid_rows & valid_cols
 
-    # Filter based on grid activation
-    bbox_indices = valid_indices & (grid[row_indices, col_indices] == value)
-    return bboxes[bbox_indices]
+        # Filter based on grid activation
+        bbox_indices = valid_indices & (grid[row_indices, col_indices] == value)
+        bboxes = bboxes[bbox_indices]
+        return bboxes if bboxes.size>0 else None
 
 def get_box_grid_idx(boxes, grid_width, block_size=128):
     boxes = np.atleast_2d(boxes)  # 确保 boxes 是二维的
@@ -241,24 +241,30 @@ def OBDS_single(img_curr, block_ref, bbox_prev):
     
     costs[:] = 65537
 
+    if cost>1:
+        cost = cost/255
     bboxCurr = np.array([x, y, x+blockW, y+blockH, score, id, cost])     # [x1, y1, x2, y2, score, id, MAD]
 
-    return bboxCurr
+    return bboxCurr if cost < 0.15 else None
 
 def OBDS_all(img, outputs_prev, outputs_ref):
     # img = img.permute(1, 2, 0).cpu().numpy()
-    outputs = np.array([OBDS_single(img, outputs_ref[bbox_prev[5]]['data'], bbox_prev) for bbox_prev in outputs_prev])
-    return outputs
+    outputs = np.array([result for result in (OBDS_single(img, outputs_ref[bbox_prev[5]]['data'], bbox_prev) for bbox_prev in outputs_prev) if result is not None])
+    return outputs if outputs.size>0 else None
 
 def OBDS_run(policy_meta, block_size = 128):
     img = policy_meta['inputs'].squeeze(0).permute(1, 2, 0).cpu().numpy()
     outputs_prev = policy_meta['outputs'][0][0]      # Note that when calling OBDS, policy_meta['outputs'] is the output of the previous frame
     outputs_ref = policy_meta['outputs_ref']
     grid = policy_meta['grid_triple'].squeeze(0).squeeze(0).cpu().numpy()
+
+    outputs = None
     t1 = time.time()
     outputs_prev = filter_det(grid, outputs_prev, block_size, value=2)
-    outputs = OBDS_all(img, outputs_prev, outputs_ref)
-    outputs = filter_det(grid, outputs, block_size, value=2)
+    if outputs_prev is not None:
+        outputs = OBDS_all(img, outputs_prev, outputs_ref)
+    if outputs is not None:
+        outputs = filter_det(grid, outputs, block_size, value=2)
     t2 = time.time()
     print("OBDS time: {} ms".format((t2-t1)*1000))
     return outputs
@@ -298,7 +304,8 @@ if __name__ == "__main__":
             new_box_list = OBDS_run(policy_meta)
             if i > 1:
                 box_transfered = filter_det(grid_original, policy_meta['outputs'][0][0], block_size=128, value=0)
-                new_box_list = np.vstack([new_box_list, box_transfered])
+                if box_transfered is not None:
+                    new_box_list = np.vstack([new_box_list, box_transfered])
             img_original_copy = plot_center(img_original_copy, new_box_list)
             policy_meta['outputs'] = [[new_box_list]]
             for new_box in new_box_list:

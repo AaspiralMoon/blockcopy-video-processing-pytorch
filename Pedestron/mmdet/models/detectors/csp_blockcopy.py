@@ -50,19 +50,20 @@ class CSPBlockCopy(CSP):
         torch.cuda.empty_cache()
 
     def update_outputs_ref(self, out):
-        img = self.policy_meta['inputs']
-        img_id = self.clip_length
-        outputs_ref = self.policy_meta['outputs_ref']
-        
-        # modify self.policy_meta['outputs_ref'] in-place
-        for i, bbox in enumerate(out[0][0][:, :4].astype(np.int32)):
-            outputs_ref[self.obj_id] = {
-                                    'data': img[bbox[1]:bbox[3], bbox[0]:bbox[2]],
-                                    'bbox': bbox,
-                                    'img_id': img_id
-                                        }
-            out[0][0][i] = np.append(out[0][0][i], [self.obj_id, 1])
-            self.obj_id += 1
+        if len(out[0][0]) != 0:
+            img = self.policy_meta['inputs']
+            img_id = self.clip_length
+            outputs_ref = self.policy_meta['outputs_ref']
+            
+            # modify self.policy_meta['outputs_ref'] in-place
+            for i, bbox in enumerate(out[0][0][:, :4].astype(np.int32)):
+                outputs_ref[self.obj_id] = {
+                                        'data': img[bbox[1]:bbox[3], bbox[0]:bbox[2]],
+                                        'bbox': bbox,
+                                        'img_id': img_id
+                                            }
+                out[0][0][i] = np.append(out[0][0][i], [self.obj_id, 1])
+                self.obj_id += 1
     
     def update_frame_state(self) -> torch.Tensor:
         frame_state = self.policy_meta['frame_state']
@@ -80,6 +81,28 @@ class CSPBlockCopy(CSP):
 
         return frame_state_updated
     
+    def handle_OBDS(self, out_CNN):
+        grid_triple = self.policy_meta['grid_triple'].squeeze(0).squeeze(0).cpu().numpy()
+        block_size = self.policy.block_size
+
+        if self.policy_meta['outputs_OBDS'] is not None:
+            out_OBDS_transfered = filter_det(grid_triple, self.policy_meta['outputs_OBDS'], block_size, value=0)
+        
+        if len(self.policy_meta['outputs'][0][0]) > 0 and self.policy_meta['num_est'] != 0:
+            out_OBDS = OBDS_run(self.policy_meta, block_size)
+
+        self.policy_meta['outputs_OBDS'] = out_OBDS
+
+        if out_OBDS is not None:
+            self.policy_meta['frame_state'] = self.update_frame_state()
+            self.block_temporal_features._features_full.popleft()
+            self.block_temporal_features._features_full.appendleft(self.policy_meta['frame_state'].detach())
+
+        # Combine outputs
+        combined_out = [x for x in [out_CNN[0][0], out_OBDS, out_OBDS_transfered] if x is not None]
+        out = np.vstack(combined_out) if combined_out else np.array([])
+        return [[out]] if out.size > 0 else out_CNN
+
     def simple_test(self, img, img_meta, rescale=False):
         # run policy
         self.policy_meta['inputs'] = img
@@ -89,22 +112,24 @@ class CSPBlockCopy(CSP):
     
         with timings.env('blockcopy/model', 3):
             # run model with block-sparse execution
-            if self.policy_meta['num_exec'] and self.policy_meta['num_est'] == 0:
+            if self.policy_meta['num_exec'] == 0 and self.policy_meta['num_est'] == 0:
                 # if no blocks to be executed, just copy outputs
                 self.policy_meta = self.policy_meta.copy()
                 out = self.policy_meta['outputs']
+            elif self.policy_meta['num_exec'] == 0 and self.policy_meta['num_est'] != 0:
+                raise NotImplementedError
             else:
                 # convert inputs into tensorwrapper object
                 x = blockcopy.to_tensorwrapper(img)       # img: [1, 3, 1024, 2048], torch
 
                 # set meta from previous run to integrate temporal aspects
-                self.block_temporal_features = x.process_temporal_features(self.block_temporal_features)
+                self.block_temporal_features = x.process_temporal_features(self.block_temporal_features)  # x will change self.block_temporal_features in later operations
                 
                 # convert to blocks with given grid
                 x = x.to_blocks(self.policy_meta['grid'])
 
                 x.set_grid_triple(self.policy_meta['grid_triple'])
-                
+
                 # get frame state (latest executed frame per block)
                 self.policy_meta['frame_state'] = x.combine_().to_tensor()
                 
@@ -115,30 +140,18 @@ class CSPBlockCopy(CSP):
                 if self.return_feature_maps:
                     return self.bbox_head.get_bboxes_features(*bbox_inputs)
                 bbox_list = self.bbox_head.get_bboxes(*bbox_inputs)
-                out_CNN = [
+                out = [
                     bbox2result(det_bboxes, det_labels, self.bbox_head.num_classes)
                     for det_bboxes, det_labels in bbox_list
                 ]
                 
                 # new added              
                 # update self.policy_meta['outputs_ref'] and out_CNN (add obj_id and flag) in-place
-                self.update_outputs_ref(out_CNN)
+                self.update_outputs_ref(out)
                 
-                # handle previous OBDS detections: prev is OBDS but curr is non-executed
-                if self.policy_meta['outputs_OBDS'] is not None:
-                    # out_OBDS_transfered = transfer_prev_OBDS(self.policy_meta, self.policy.block_size)
-                    out_OBDS_transfered = filter_det(self.policy_meta['grid_triple'].squeeze(0).squeeze(0).cpu().numpy(), self.policy_meta['outputs_OBDS'], self.policy.block_size, value=0)
-                    
-                if self.policy_meta['outputs'] is not None:        # DO NOT call OBDS on the first frame       
-                    out_OBDS = OBDS_run(self.policy_meta, self.policy.block_size)              # run OBDS (multi-threading)
-                    self.policy_meta['outputs_OBDS'] = out_OBDS
-                    
-                    # update frame state
-                    self.policy_meta['frame_state'] = self.update_frame_state()
-                    
-                    # final outputs are from both CNN and OBDS
-                    out = np.vstack([out_CNN[0][0], out_OBDS, out_OBDS_transfered])
-                    out = [[out]]               # [] for shape matching
+                # Do not call OBDS on the first frame 
+                if self.policy_meta['outputs'] is not None:
+                    out = self.handle_OBDS(out)
                 
             # keep previous outputs for policy
             self.policy_meta['outputs_prev'] = self.policy_meta['outputs']

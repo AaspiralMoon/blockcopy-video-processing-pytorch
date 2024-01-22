@@ -178,14 +178,24 @@ def find_grid_for_boxes_vectorized(boxes, grid_width, block_size=128):
 # print(find_grid_for_boxes_vectorized(single_box, 16))
 
 # 示例：多个检测框
-multiple_boxes = [[1155.67603, 369.331177, 1181.67163, 432.735107, 0.510575712],
-                  [1132.53503, 393.939789, 1151.37585, 439.893219, 0.117636457]]
-print(find_grid_for_boxes_vectorized(multiple_boxes, 16))
+# multiple_boxes = [[1155.67603, 369.331177, 1181.67163, 432.735107, 0.510575712],
+#                   [1132.53503, 393.939789, 1151.37585, 439.893219, 0.117636457]]
+# print(find_grid_for_boxes_vectorized(multiple_boxes, 16))
 
-grid = np.random.choice([0, 1, 2], size=(8, 16))
+# grid = np.random.choice([0, 1, 2], size=(8, 16))
 
-rows, cols = np.where(grid == 0)
-linear_indices = rows * grid.shape[1] + cols
+# rows, cols = np.where(grid == 0)
+# linear_indices = rows * grid.shape[1] + cols
 
-print(linear_indices)
-print(np.isin(find_grid_for_boxes_vectorized(multiple_boxes, 16), linear_indices))
+# print(linear_indices)
+# print(np.isin(find_grid_for_boxes_vectorized(multiple_boxes, 16), linear_indices))
+
+a = np.array([])
+a =  None
+a = []
+a = 0
+a = np.array([])
+b = None
+c = [1,2,3]
+if not c:
+    print('yes')
