@@ -282,7 +282,7 @@ class TensorWrapper(torch.Tensor):
         Returns -1 if not in blocks
         """
         return self.data_shape[-1] if self.is_blocks else -1
-
+    
     def get_grid(self) -> torch.BoolTensor:
         """
         Return the bool grid indiciating the executed blocks
