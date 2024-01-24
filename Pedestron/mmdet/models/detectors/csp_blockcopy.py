@@ -14,7 +14,7 @@ import copy
 # added
 import os, sys
 sys.path.append(os.path.abspath('/home/wiser-renjie/projects/blockcopy/demo'))
-from OBDS import OBDS_run, filter_det, transfer_prev_OBDS
+from OBDS import OBDS_run, filter_det
 
 @DETECTORS.register_module
 class CSPBlockCopy(CSP):
@@ -45,6 +45,7 @@ class CSPBlockCopy(CSP):
             'inputs': None,
             'outputs': None,
             'outputs_prev': None,
+            'outputs_OBDS': None,
             'outputs_ref': {}
         }
         torch.cuda.empty_cache()
@@ -62,7 +63,9 @@ class CSPBlockCopy(CSP):
                                         'bbox': bbox,
                                         'img_id': img_id
                                             }
-                out[0][0][i] = np.append(out[0][0][i], [self.obj_id, 1])
+                out_list = out[0][0].tolist()
+                out_list[i] = np.append(out[0][0][i], [self.obj_id, 1]).tolist()
+                out[0][0] = np.array(out_list)
                 self.obj_id += 1
     
     def update_frame_state(self) -> torch.Tensor:
@@ -84,15 +87,12 @@ class CSPBlockCopy(CSP):
     def handle_OBDS(self, out_CNN):
         grid_triple = self.policy_meta['grid_triple'].squeeze(0).squeeze(0).cpu().numpy()
         block_size = self.policy.block_size
-
-        if self.policy_meta['outputs_OBDS'] is not None:
-            out_OBDS_transfered = filter_det(grid_triple, self.policy_meta['outputs_OBDS'], block_size, value=0)
         
-        if len(self.policy_meta['outputs'][0][0]) > 0 and self.policy_meta['num_est'] != 0:
-            out_OBDS = OBDS_run(self.policy_meta, block_size)
-
+        out_OBDS_transfered = filter_det(grid_triple, self.policy_meta['outputs_OBDS'], block_size, value=0) if self.policy_meta['outputs_OBDS'] is not None else None
+        out_OBDS = OBDS_run(self.policy_meta, block_size) if len(self.policy_meta['outputs'][0][0]) > 0 and self.policy_meta['num_est'] != 0 else None
+        
         self.policy_meta['outputs_OBDS'] = out_OBDS
-
+        
         if out_OBDS is not None:
             self.policy_meta['frame_state'] = self.update_frame_state()
             self.block_temporal_features._features_full.popleft()
@@ -128,6 +128,9 @@ class CSPBlockCopy(CSP):
                 # convert to blocks with given grid
                 x = x.to_blocks(self.policy_meta['grid'])
 
+                # added
+                if self.policy_meta['outputs'] is None:
+                    self.policy_meta['grid_triple'] = self.policy_meta['grid'].to(dtype=torch.int32)
                 x.set_grid_triple(self.policy_meta['grid_triple'])
 
                 # get frame state (latest executed frame per block)
@@ -157,9 +160,11 @@ class CSPBlockCopy(CSP):
             self.policy_meta['outputs_prev'] = self.policy_meta['outputs']
             self.policy_meta['outputs'] = out
 
+            print('outputs: ', self.policy_meta['outputs'])   
+            print('outputs_prev: ', self.policy_meta['outputs_prev'])
         self.clip_length += 1
         with timings.env('blockcopy/policy_optim', 3):
             if self.policy is not None:
                 train_policy = self.clip_length % self.train_interval == 0
-                self.policy_meta = self.policy.optim(self.policy_meta, train=train_policy)  
-        return out[0]
+                self.policy_meta = self.policy.optim(self.policy_meta, train=train_policy)
+        return [out[0][0][:, :5]]

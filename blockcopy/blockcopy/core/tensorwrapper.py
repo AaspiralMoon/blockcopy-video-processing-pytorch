@@ -385,10 +385,10 @@ class TensorWrapper(torch.Tensor):
 
             return out
 
-    def disable_OBDS_block(out: torch.Tensor, grid_triple: torch.Tensor) -> torch.Tensor:
+    def disable_OBDS_block(self, out: torch.Tensor, grid_triple: torch.Tensor) -> torch.Tensor:
         _, _, H, W = out.shape     # out: [1, 256, 256, 512]    # grid_triple: [1, 1, 8, 16]
         _, _, GH, GW = grid_triple.shape
-        block_size = H / GH
+        block_size = H // GH
         for i in range(0, H, block_size):
             for j in range(0, W, block_size):
                 if grid_triple[0, 0, i // block_size, j // block_size] == 2:

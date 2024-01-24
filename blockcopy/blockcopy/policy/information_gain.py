@@ -65,76 +65,77 @@ def build_instance_mask(bbox_results: List[List[np.ndarray]], size: tuple, devic
             mask[0,c,y1:y2, x1:x2] = torch.max(mask[0,0, y1:y2, x1:x2], score)
     return mask
 
-def build_instance_mask_iou_gain(bbox_results, bbox_results_prev, size, device='cpu', SUBSAMPLE=2) -> torch.Tensor:     
-    assert len(bbox_results) == 1, "only supports batch size 1"  
+def build_instance_mask_iou_gain(outputs, outputs_prev, size, device='cpu', SUBSAMPLE=2) -> torch.Tensor:  
+    assert len(outputs) == 1, "only supports batch size 1"  
     mask = torch.zeros((size[0], size[1], size[2]//SUBSAMPLE, size[3]//SUBSAMPLE), device='cuda')
 
     num_classes = size[1]
 
     for c in range(num_classes):
-        bbox_scores = torch.from_numpy(bbox_results[0][c][:,4]).to(device)                     # [x1, y1, x2, y2, score, obj_id, mAD/flag]
-        bbox_scores_prev =  torch.from_numpy(bbox_results_prev[0][c][:,4]).to(device)
-        bbox_results = (bbox_results[0][c][:,:4] / SUBSAMPLE).astype(np.int32)
-        bbox_results_prev = (bbox_results_prev[0][c][:,:4] / SUBSAMPLE).astype(np.int32)
-        bbox_ids= bbox_results[0][c][:, 5].astype(np.int32)
-        bbox_ids_prev = bbox_results[0][c][:, 5].astype(np.int32)
-        bbox_flags = bbox_results[0][c][:, 6]
-        bbox_flags_prev = bbox_results[0][c][:, 6]
+        if len(outputs[0][c]) > 0 and len(outputs_prev[0][c]) > 0:
+            bbox_scores = torch.from_numpy(outputs[0][c][:,4]).to(device)                     # [x1, y1, x2, y2, score, obj_id, mAD/flag]
+            bbox_scores_prev =  torch.from_numpy(outputs_prev[0][c][:,4]).to(device)
+            bbox_results = (outputs[0][c][:,:4] / SUBSAMPLE).astype(np.int32)
+            bbox_results_prev = (outputs_prev[0][c][:,:4] / SUBSAMPLE).astype(np.int32)
+            bbox_ids= outputs[0][c][:, 5].astype(np.int32)
+            bbox_ids_prev = outputs_prev[0][c][:, 5].astype(np.int32)
+            bbox_flags = outputs[0][c][:, 6]
+            bbox_flags_prev = outputs_prev[0][c][:, 6]
 
-        obj_id_to_idx_prev = {id: i for i, id in enumerate(bbox_ids_prev)}
-        matched_prevs = set()
-        for idx, (bbox, score, obj_id, flag) in enumerate(zip(bbox_results, bbox_scores, bbox_ids, bbox_flags)):
-            idx_prev_matched = obj_id_to_idx_prev.get(obj_id, None)
-            if flag == 1:         # Det is from CNN
-                best_iou = 0
-                best_idx = None
-                for idx_prev, bbox_prev in enumerate(bbox_results_prev):
-                    if idx_prev == idx_prev_matched:          # skip the bboxes matched with OBDS in IOU calculation
-                        continue
+            obj_id_to_idx_prev = {id: i for i, id in enumerate(bbox_ids_prev)}
+            matched_prevs = set()
+            for idx, (bbox, score, obj_id, flag) in enumerate(zip(bbox_results, bbox_scores, bbox_ids, bbox_flags)):
+                idx_prev_matched = obj_id_to_idx_prev.get(obj_id, None)
+                if flag == 1:         # Det is from CNN
+                    best_iou = 0
+                    best_idx = None
+                    for idx_prev, bbox_prev in enumerate(bbox_results_prev):
+                        if idx_prev == idx_prev_matched:          # skip the bboxes matched with OBDS in IOU calculation
+                            continue
+                        iou = get_iou(bbox, bbox_prev)
+                        if iou > best_iou:
+                            best_iou = iou
+                            best_idx = idx_prev
+                    ig = torch.tensor(1 - best_iou, device=device)
+                    x1, y1, x2, y2 = bbox
+                    mask[0, 0, y1:y2, x1:x2] = torch.max(mask[0, 0, y1:y2, x1:x2], ig*float(score))
+                    if best_idx is not None:
+                        matched_prevs.add(best_idx)
+                        x1, y1, x2, y2 = bbox_results_prev[best_idx]
+                        score_prev = bbox_scores_prev[best_idx]
+                        flag_prev = bbox_flags_prev[best_idx]
+                        if flag_prev == 1:                      # prevDet is from CNN
+                            mask[0, 0, y1:y2, x1:x2] = torch.max(mask[0, 0, y1:y2, x1:x2], ig*float(score_prev))
+                        else:                                           # prevDet is from OBDS
+                            mask[0, 0, y1:y2, x1:x2] = torch.max(mask[0, 0, y1:y2, x1:x2], ig*float(score_prev*(1-flag_prev)))      # score_prev = score_ref
+                else:             # flag = mAD, Det is from OBDS
+                    assert idx_prev_matched == None, "Det is from OBDS, but fail to find prevDet"
+                    matched_prevs.add(idx_prev_matched)
+                    bbox_prev = bbox_results_prev[idx_prev_matched]
+                    flag_prev = bbox_flags_prev[idx_prev_matched]
+                    score_prev = bbox_scores_prev[idx_prev_matched]
                     iou = get_iou(bbox, bbox_prev)
-                    if iou > best_iou:
-                        best_iou = iou
-                        best_idx = idx_prev
-                ig = torch.tensor(1 - best_iou, device=device)
-                x1, y1, x2, y2 = bbox
-                mask[0, 0, y1:y2, x1:x2] = torch.max(mask[0, 0, y1:y2, x1:x2], ig*float(score))
-                if best_idx is not None:
-                    matched_prevs.add(best_idx)
-                    x1, y1, x2, y2 = bbox_results_prev[best_idx]
-                    score_prev = bbox_scores_prev[best_idx]
-                    flag_prev = bbox_flags_prev[best_idx]
-                    if flag_prev == 1:                      # prevDet is from CNN
+                    ig = torch.tensor(1 - iou, device=device)
+                    x1, y1, x2, y2 = bbox
+                    mask[0, 0, y1:y2, x1:x2] = torch.max(mask[0, 0, y1:y2, x1:x2], ig*float(score*(1-flag)))    # score = score_ref, flag = mAD
+                    x1, y1, x2, y2 = bbox_prev
+                    if flag_prev == 1:       # prevDet is from CNN
                         mask[0, 0, y1:y2, x1:x2] = torch.max(mask[0, 0, y1:y2, x1:x2], ig*float(score_prev))
-                    else:                                           # prevDet is from OBDS
-                        mask[0, 0, y1:y2, x1:x2] = torch.max(mask[0, 0, y1:y2, x1:x2], ig*float(score_prev*(1-flag_prev)))      # score_prev = score_ref
-            else:             # flag = mAD, Det is from OBDS
-                assert idx_prev_matched == None, "Det is from OBDS, but fail to find prevDet"
-                matched_prevs.add(idx_prev_matched)
-                bbox_prev = bbox_results_prev[idx_prev_matched]
-                flag_prev = bbox_flags_prev[idx_prev_matched]
-                score_prev = bbox_scores_prev[idx_prev_matched]
-                iou = get_iou(bbox, bbox_prev)
-                ig = torch.tensor(1 - iou, device=device)
-                x1, y1, x2, y2 = bbox
-                mask[0, 0, y1:y2, x1:x2] = torch.max(mask[0, 0, y1:y2, x1:x2], ig*float(score*(1-flag)))    # score = score_ref, flag = mAD
-                x1, y1, x2, y2 = bbox_prev
-                if flag_prev == 1:       # prevDet is from CNN
-                    mask[0, 0, y1:y2, x1:x2] = torch.max(mask[0, 0, y1:y2, x1:x2], ig*float(score_prev))
-                else:                 # prevDet is from OBDS
-                    mask[0, 0, y1:y2, x1:x2] = torch.max(mask[0, 0, y1:y2, x1:x2], ig*float(score_prev*(1-flag)))    # score_prev = score_ref, flag = mAD
-                
-        for j in range(len(bbox_results_prev)):
-            if j not in matched_prevs:
-                x1, y1, x2, y2  = bbox_results_prev[j]
-                flag_prev = bbox_flags_prev[j]
-                if flag_prev == 1:
-                    score = bbox_scores_prev[j]
-                else:
-                    score = bbox_scores_prev[j]*(1-flag_prev)
-                mask[0, 0, y1:y2, x1:x2] = torch.max(mask[0, 0, y1:y2, x1:x2], score)
+                    else:                 # prevDet is from OBDS
+                        mask[0, 0, y1:y2, x1:x2] = torch.max(mask[0, 0, y1:y2, x1:x2], ig*float(score_prev*(1-flag)))    # score_prev = score_ref, flag = mAD
+                    
+            for j in range(len(bbox_results_prev)):
+                if j not in matched_prevs:
+                    x1, y1, x2, y2  = bbox_results_prev[j]
+                    flag_prev = bbox_flags_prev[j]
+                    if flag_prev == 1:
+                        score = bbox_scores_prev[j]
+                    else:
+                        score = bbox_scores_prev[j]*(1-flag_prev)
+                    mask[0, 0, y1:y2, x1:x2] = torch.max(mask[0, 0, y1:y2, x1:x2], score)
 
-        if SUBSAMPLE > 1:
-            mask = F.interpolate(mask, scale_factor=SUBSAMPLE, mode='nearest')        
+            if SUBSAMPLE > 1:
+                mask = F.interpolate(mask, scale_factor=SUBSAMPLE, mode='nearest')        
         
     return mask
 

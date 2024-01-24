@@ -67,6 +67,7 @@ def single_gpu_test(model, data_loader, show=False, save_img=False, save_img_dir
                     out_file = save_img_dir + '/' + str(num_images)+'_result.jpg'
                     if save_img:
                         print(f"Saving output result to {out_file}")
+                        
                     model.module.show_result(data, result, dataset.img_norm_cfg, show_result=show, save_result=save_img, result_name=out_file)
                     
 
@@ -75,12 +76,12 @@ def single_gpu_test(model, data_loader, show=False, save_img=False, save_img_dir
                         policy_meta = model.module.policy_meta
                         rescale_func = lambda x: cv2.resize(x, dsize=(1024, 512), interpolation=cv2.INTER_NEAREST)
                         frame = new_data['img'][0][0].permute(1,2,0).mul_(torch.tensor(dataset.img_norm_cfg.std)).add_(torch.tensor(dataset.img_norm_cfg.mean))
-                        frame = frame.float().numpy()/255
+                        frame = frame.float().numpy()
                         frame = rescale_func(frame)
                         frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
                         frame_file = save_img_dir + '/' + str(num_images)+'_frame.jpg'
                         print(f"Saving grid result to {frame_file}")
-                        assert cv2.imwrite(frame_file, frame*255)
+                        assert cv2.imwrite(frame_file, frame)
                         
                         # plot frame state
                         frame_state = policy_meta['frame_state']
@@ -95,7 +96,7 @@ def single_gpu_test(model, data_loader, show=False, save_img=False, save_img_dir
                         # plot grid
                         import cmapy
                         import matplotlib.pyplot as plt
-                        grid = policy_meta['grid']
+                        grid = policy_meta['grid_triple']
                         grid_file = save_img_dir + '/' + str(num_images)+'_grid.jpg'
                         grid_rescaled = rescale_func(grid[0,0].float().cpu().numpy())
                         color_map = {
@@ -106,7 +107,9 @@ def single_gpu_test(model, data_loader, show=False, save_img=False, save_img_dir
                         grid_colored = np.zeros((grid_rescaled.shape[0], grid_rescaled.shape[1], 3), dtype=np.uint8)
                         for value, color in color_map.items():
                             grid_colored[grid_rescaled == value] = color
-                        grid_colored = cv2.addWeighted(frame, 0.8, grid_colored, 0.2, 0)
+                        if frame.dtype != grid_colored.dtype:
+                            frame = frame.astype(grid_colored.dtype)
+                        grid_colored = cv2.addWeighted(frame, 0.5, grid_colored, 0.5, 0)
                         print(f"Saving grid result to {grid_file}")
                         assert cv2.imwrite(grid_file, grid_colored)
 
@@ -319,8 +322,8 @@ def main():
         if not distributed:
             model = MMDataParallel(model, device_ids=[0])
             print('# ----------- warmup ---------- #')
-            # _, _ = single_gpu_test(model, data_loader_warmup, False, False, '', args, limit=args.num_clips_warmup)
-            _, _ = single_gpu_test(model, data_loader_warmup, args.show, args.save_img, args.save_img_dir, args, limit=args.num_clips_warmup)
+            _, _ = single_gpu_test(model, data_loader_warmup, False, False, '', args, limit=args.num_clips_warmup)
+            # _, _ = single_gpu_test(model, data_loader_warmup, args.show, args.save_img, args.save_img_dir, args, limit=args.num_clips_warmup)
             
             print('# -----------  eval  ---------- #')
             if args.fast:

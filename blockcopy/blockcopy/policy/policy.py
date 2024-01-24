@@ -152,7 +152,7 @@ class Policy(torch.nn.Module, metaclass=abc.ABCMeta):
                 grid.flatten()[idx] = 1
         return grid
     
-    def stochastic_explore(grid: torch.Tensor) -> torch.Tensor:
+    def stochastic_explore(self, grid: torch.Tensor) -> torch.Tensor:
         grid2 = grid.cpu()
         total = grid2.numel()
         idx_not_exec = torch.nonzero(grid2.flatten()==0).squeeze(1).tolist()
@@ -334,33 +334,32 @@ class PolicyTrainRL(Policy, metaclass=abc.ABCMeta):
                 with timings.env("policy/net", 3):
                     assert self.net.training
                     grid_logits = self.net(policy_meta)
+                    _, GC, GH, GW = grid_logits.shape
                     assert torch.all(
                         ~torch.isnan(grid_logits)
                     ), "Policy net returned NaN's, maybe optimization problem?"
 
                 with timings.env("policy/sample", 3):
-                    grid_logits = grid_logits.view(-1, 3) 
+                    grid_logits = grid_logits.permute(0, 2, 3, 1).contiguous().view(-1, 3)
                     m = Categorical(logits=grid_logits)  # create distribution, change Bernoulli to Categorical
                     grid = m.sample()  # sample
-                    grid = grid.view(N, 1, G[0], G[1])
-
+                    grid = grid.view(N, 1, GH, GW)
                 if self.at_least_one and grid.sum() == 0:
                     # if no blocks executed, execute a single one
                     grid[0, 0, 0, 0] = 1             # N, 1, H, W.       0: non-executed, 1: CNN, 2: OBDS
 
                 grid = self.stochastic_explore(grid)
 
-                grid_probs = m.probs
-                grid_log_probs = m.log_prob(grid)     # this step is related to reward
-
+                grid_probs = m.probs.view(N, GH, GW, 3).permute(0, 3, 1, 2)
+                grid_log_probs = m.log_prob(grid.view(-1)).view(N, 1, GH, GW)     # this step is related to reward
                 assert grid.dim() == 4
                 assert grid_probs.dim() == 4
-                assert grid_probs.shape == grid.shape
+                # assert grid_probs.shape == grid.shape
 
                 policy_meta["grid_log_probs"] = grid_log_probs
                 policy_meta["grid_probs"] = grid_probs
                 policy_meta["grid"] = grid == 1     # 1 = True, 0, 2 = False
-                policy_meta["grid_triple"] = grid   # include 0, 1, 2       
+                policy_meta["grid_triple"] = grid   # include 0, 1, 2      
         policy_meta = self.stats.add_policy_meta(policy_meta)
         return policy_meta
 
@@ -379,6 +378,7 @@ class PolicyTrainRL(Policy, metaclass=abc.ABCMeta):
         policy_meta["output_repr"] = self.information_gain.get_output_repr(policy_meta)
 
         grid = policy_meta["grid"]
+        grid_triple = policy_meta["grid_triple"]
         assert grid.dim() == 4
         block_use = policy_meta["perc_exec"]                             # add block use to handle action 2
         if self.running_cost is None:
@@ -392,7 +392,8 @@ class PolicyTrainRL(Policy, metaclass=abc.ABCMeta):
                 policy_meta["information_gain"] = ig
                 reward_complexity_weighted = self._get_reward_complexity(policy_meta) * self.complexity_weight_gamma
                 # reward = ig + reward_complexity_weighted
-                reward = ig + torch.where(grid == 2, 0.1 * reward_complexity_weighted, reward_complexity_weighted)   # add discount=0.1 to the running cost of OBDS blocks
+                grid_triple_resized = F.interpolate(grid_triple.float(), size=ig.shape[2:], mode='nearest')
+                reward = ig + torch.where(grid_triple_resized == 2, 0.1 * reward_complexity_weighted, reward_complexity_weighted)   # add discount=0.1 to the running cost of OBDS blocks
                 assert reward.dim() == 4
                 assert not torch.any(torch.isnan(reward))
                 log_probs = policy_meta["grid_log_probs"]
@@ -409,8 +410,8 @@ class PolicyTrainRL(Policy, metaclass=abc.ABCMeta):
                     self.optimizer.step()
                     self.optimizer.zero_grad(set_to_none=True)
 
-                exec_mean = policy_meta["grid_probs"][grid].mean()
-                skip_mean = policy_meta["grid_probs"][~grid].mean()
+                exec_mean = policy_meta["grid_probs"][:, 1, :, :].unsqueeze(1)[grid].mean()
+                skip_mean = policy_meta["grid_probs"][:, 0, :, :].unsqueeze(1)[~grid].mean()
                 if self.verbose:
                     s = ""
                     s += f"BLOCKS/running_cost: {self.running_cost: 0.3f} \n"

@@ -5,23 +5,24 @@ from torch.distributions import Bernoulli, Categorical
 import time
 import random
 
-# B, C, H, W = 1, 3, 3, 3
-# grid_logits = torch.rand(B, C, H, W)
+B, C, H, W = 1, 3, 3, 3
+grid_logits = torch.rand(B, C, H, W)
 
-# # Step 2: Normalize along the channel dimension
-# grid_logits = grid_logits / grid_logits.sum(dim=1, keepdim=True)
+# Step 2: Normalize along the channel dimension
+grid_logits = grid_logits / grid_logits.sum(dim=1, keepdim=True)
 
-# m = Categorical(logits=grid_logits)
-# grid = m.sample()  # equal probability of 0, 1, 2, 3
+m = Categorical(logits=grid_logits)
+grid = m.sample()  # equal probability of 0, 1, 2, 3
 
-# print('grid_prob: ', m.probs)
-# print('log_prob: ', m.log_prob(grid))
-# print('grid: ', grid)
+print('grid_logits: ', grid_logits)
+print('grid_prob: ', m.probs)
+print('log_prob: ', m.log_prob(grid))
+print('grid: ', grid)
 
-# grid[0, 0, 0] = 1
-# print('grid_prob: ', m.probs)
-# print('log_prob: ', m.log_prob(grid))
-# print('grid: ', grid)
+grid[0, 0, 0] = 1
+print('grid_prob: ', m.probs)
+print('log_prob: ', m.log_prob(grid))
+print('grid: ', grid)
 
 # def stochastic_explore(grid: torch.Tensor) -> torch.Tensor:
 #     grid2 = grid.cpu()
@@ -90,15 +91,15 @@ import random
 # def func(policy_meta):
 #     outputs = policy_meta['outputs']
 
-# # Define the tensors and values
-# ig = torch.tensor([[0.1, 0.2], [0.3, 0.4]])
-# grid = torch.tensor([[1, 2], [0, 1]])
-# reward_complexity_weighted = 0.5  # This is a scalar value
-# discount = 0.1  # Discount factor for when grid == 2
+# Define the tensors and values
+ig = torch.tensor([[0.1, 0.2], [0.3, 0.4]])
+grid = torch.tensor([[1, 2], [0, 1]])
+reward_complexity_weighted = 0.5  # This is a scalar value
+discount = 0.1  # Discount factor for when grid == 2
 
-# # Apply the conditional reward
-# reward = ig + torch.where(grid == 2, discount * reward_complexity_weighted, reward_complexity_weighted)
-# print(reward)
+# Apply the conditional reward
+reward = ig + torch.where(grid == 2, discount * reward_complexity_weighted, reward_complexity_weighted)
+print(reward)
 
 # import cv2
 # import numpy as np
