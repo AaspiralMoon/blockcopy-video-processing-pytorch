@@ -6,8 +6,113 @@ import numpy as np
 import torch.nn as nn
 import pycocotools.mask as maskUtils
 
+import cv2
+from mmcv.image import imread, imwrite
+
 from mmdet.core import tensor2imgs, get_classes, auto_fp16
 
+# added
+def color_val(color):
+    colors = {
+        'red': (0, 0, 255),
+        'green': (0, 255, 0),
+        'blue': (255, 0, 0),
+        'cyan': (255, 255, 0),
+        'yellow': (0, 255, 255),
+        'magenta': (255, 0, 255),
+        'white': (255, 255, 255),
+        'black': (0, 0, 0),
+    }
+    return colors.get(color.lower(), None)
+
+
+# added
+def imshow(img, win_name='', wait_time=0):
+    """Show an image.
+
+    Args:
+        img (str or ndarray): The image to be displayed.
+        win_name (str): The window name.
+        wait_time (int): Value of waitKey param.
+    """
+    cv2.imshow(win_name, imread(img))
+    if wait_time == 0:  # prevent from hangning if windows was closed
+        while True:
+            ret = cv2.waitKey(1)
+
+            closed = cv2.getWindowProperty(win_name, cv2.WND_PROP_VISIBLE) < 1
+            # if user closed window or if some key pressed
+            if closed or ret != -1:
+                break
+    else:
+        ret = cv2.waitKey(wait_time)
+    
+# added
+def imshow_det_bboxes(img,
+                    bboxes,
+                    labels,
+                    class_names=None,
+                    score_thr=0,
+                    bbox_color=['green', 'blue'],
+                    text_color=['green', 'blue'],
+                    thickness=1,
+                    font_scale=0.5,
+                    show=True,
+                    win_name='',
+                    wait_time=0,
+                    out_file=None):
+    """Draw bboxes and class labels (with scores) on an image.
+
+    Args:
+        img (str or ndarray): The image to be displayed.
+        bboxes (ndarray): Bounding boxes (with scores), shaped (n, 4) or
+            (n, 5).
+        labels (ndarray): Labels of bboxes.
+        class_names (list[str]): Names of each classes.
+        score_thr (float): Minimum score of bboxes to be shown.
+        bbox_color (str or tuple or :obj:`Color`): Color of bbox lines.
+        text_color (str or tuple or :obj:`Color`): Color of texts.
+        thickness (int): Thickness of lines.
+        font_scale (float): Font scales of texts.
+        show (bool): Whether to show the image.
+        win_name (str): The window name.
+        wait_time (int): Value of waitKey param.
+        out_file (str or None): The filename to write the image.
+    """
+    assert bboxes.ndim == 2
+    assert labels.ndim == 1
+    assert bboxes.shape[0] == labels.shape[0]
+    img = imread(img)
+
+    if score_thr > 0:
+        scores = bboxes[:, 4]
+        inds = scores > score_thr
+        bboxes = bboxes[inds, :]
+        labels = labels[inds]
+
+    bbox_color_list = [color_val(color) for color in bbox_color]
+    text_color_list = [color_val(color) for color in text_color]
+     
+    for bbox, label in zip(bboxes, labels):
+        bbox_color = bbox_color_list[0] if bbox[6] == 1 else bbox_color_list[1]
+        text_color = text_color_list[0] if bbox[6] == 1 else text_color_list[1]
+        bbox_int = bbox.astype(np.int32)
+        left_top = (bbox_int[0], bbox_int[1])
+        right_bottom = (bbox_int[2], bbox_int[3])
+        cv2.rectangle(
+            img, left_top, right_bottom, bbox_color, thickness=thickness)
+        label_text = class_names[
+            label] if class_names is not None else 'cls {}'.format(label)
+        if len(bbox) > 4:
+            label_text += '|{:.02f}'.format(bbox[4])
+        cv2.putText(img, label_text, (bbox_int[0], bbox_int[1] - 2),
+                    cv2.FONT_HERSHEY_COMPLEX, font_scale, text_color)
+
+    if show:
+        imshow(img, win_name, wait_time)
+    if out_file is not None:
+        imwrite(img, out_file)
+            
 
 class BaseDetector(nn.Module):
     """Base class for detectors"""
@@ -87,7 +192,7 @@ class BaseDetector(nn.Module):
             return self.forward_train(img, img_meta, **kwargs)
         else:
             return self.forward_test(img, img_meta, **kwargs)
-
+        
     def show_result(self,
                     data,
                     result,
@@ -138,7 +243,7 @@ class BaseDetector(nn.Module):
                 for i, bbox in enumerate(bbox_result)
             ]
             labels = np.concatenate(labels)
-            mmcv.imshow_det_bboxes(
+            imshow_det_bboxes(
                 img_show,
                 bboxes,
                 labels,
