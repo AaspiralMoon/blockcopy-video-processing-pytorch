@@ -68,7 +68,7 @@ def single_gpu_test(model, data_loader, show=False, save_img=False, save_img_dir
                     if save_img:
                         print(f"Saving output result to {out_file}")
                         
-                    model.module.show_result(data, result, dataset.img_norm_cfg, show_result=show, save_result=save_img, result_name=out_file)
+                    model.module.show_result(new_data, result, dataset.img_norm_cfg, show_result=show, save_result=save_img, result_name=out_file)
                     
 
 
@@ -322,8 +322,8 @@ def main():
         if not distributed:
             model = MMDataParallel(model, device_ids=[0])
             print('# ----------- warmup ---------- #')
-            _, _ = single_gpu_test(model, data_loader_warmup, False, False, '', args, limit=args.num_clips_warmup)
-            # _, _ = single_gpu_test(model, data_loader_warmup, args.show, args.save_img, args.save_img_dir, args, limit=args.num_clips_warmup)
+            # _, _ = single_gpu_test(model, data_loader_warmup, False, False, '', args, limit=args.num_clips_warmup)
+            _, _ = single_gpu_test(model, data_loader_warmup, args.show, args.save_img, args.save_img_dir, args, limit=args.num_clips_warmup)
             
             print('# -----------  eval  ---------- #')
             if args.fast:

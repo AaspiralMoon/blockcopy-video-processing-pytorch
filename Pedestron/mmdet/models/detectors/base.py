@@ -121,7 +121,7 @@ class BaseDetector(nn.Module):
         for img, img_meta in zip(imgs, img_metas):
             h, w, _ = img_meta['img_shape']
             img_show = img[:h, :w, :]
-
+            
             bboxes = np.vstack(bbox_result)
             # draw segmentation masks
             if segm_result is not None:

@@ -160,8 +160,6 @@ class CSPBlockCopy(CSP):
             self.policy_meta['outputs_prev'] = self.policy_meta['outputs']
             self.policy_meta['outputs'] = out
 
-            print('outputs: ', self.policy_meta['outputs'])   
-            print('outputs_prev: ', self.policy_meta['outputs_prev'])
         self.clip_length += 1
         with timings.env('blockcopy/policy_optim', 3):
             if self.policy is not None:
