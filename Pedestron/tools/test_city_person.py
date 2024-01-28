@@ -118,7 +118,7 @@ def single_gpu_test(model, data_loader, show=False, save_img=False, save_img_dir
                             output_repr = policy_meta['output_repr'][0]
                             for c in range(output_repr.size(0)):
                                 t = rescale_func(output_repr[c].cpu().numpy())
-                                output_repr_path = save_img_dir + '/' + str(num_images)+f'_output_repr_c{c}.png'
+                                output_repr_path = save_img_dir + '/' + str(num_images)+f'_output_repr_c{c}.jpg'
                                 t -= t.min()
                                 if t.max() > 0 :
                                     t *= 255/t.max()
@@ -129,7 +129,7 @@ def single_gpu_test(model, data_loader, show=False, save_img=False, save_img_dir
                         if 'information_gain' in policy_meta:
                             ig = policy_meta['information_gain'][0]
                             t = rescale_func(ig[0].cpu().numpy())
-                            ig_path = save_img_dir + '/' + str(num_images)+f'_information_gain.png'
+                            ig_path = save_img_dir + '/' + str(num_images)+f'_information_gain.jpg'
                             t -= t.min()
                             if t.max() > 0 :
                                     t *= 255/t.max()

@@ -109,7 +109,7 @@ def build_instance_mask_iou_gain(outputs, outputs_prev, size, device='cpu', SUBS
                         else:                                           # prevDet is from OBDS
                             mask[0, 0, y1:y2, x1:x2] = torch.max(mask[0, 0, y1:y2, x1:x2], ig*float(score_prev*(1-flag_prev)))      # score_prev = score_ref
                 else:             # flag = mAD, Det is from OBDS
-                    assert idx_prev_matched == None, "Det is from OBDS, but fail to find prevDet"
+                    assert idx_prev_matched is not None, "Det is from OBDS, but fail to find prevDet"
                     matched_prevs.add(idx_prev_matched)
                     bbox_prev = bbox_results_prev[idx_prev_matched]
                     flag_prev = bbox_flags_prev[idx_prev_matched]

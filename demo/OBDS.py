@@ -8,6 +8,24 @@ import numpy as np
 from online_yolov5 import yolov5_inference_with_id
 from DS_video_with_detector import mkdir_if_missing
 
+
+def generate_tensor(percentage_of_twos, device='cuda'):
+    shape = (1, 1, 8, 16)
+    num_elements = shape[2] * shape[3]
+    num_twos = int(num_elements * percentage_of_twos)
+    num_ones_zeros = num_elements - num_twos
+    num_ones = num_ones_zeros // 2
+    num_zeros = num_ones_zeros - num_ones
+    
+    # 创建一个包含指定数量 0、1 和 2 的一维数组
+    arr = np.array([2]*num_twos + [1]*num_ones + [0]*num_zeros)
+    np.random.shuffle(arr)  # 打乱数组
+
+    # 将一维数组重塑为 1,1,8,16 形状的 tensor
+    tensor = torch.tensor(arr.reshape(shape), dtype=torch.int).to(device)
+
+    return tensor
+
 def _costMAD(block1, block2):
     block1 = block1.astype(np.float32)
     block2 = block2.astype(np.float32)
@@ -131,6 +149,11 @@ def OBDS_single(img_curr, block_ref, bbox_prev):
     
     # start search
     costs[4] = _costMAD(img_curr[y1:y2, x1:x2], block_ref)
+    
+    # print('Saving**************************************************************************\n')
+    # cv2.imwrite('/home/wiser-renjie/projects/blockcopy/Pedestron/output/test3/img_curr.jpg', cv2.cvtColor(img_curr.astype(np.float32), cv2.COLOR_RGB2BGR))
+    # cv2.imwrite('/home/wiser-renjie/projects/blockcopy/Pedestron/output/test3/block_ref.jpg', cv2.cvtColor(block_ref.astype(np.float32), cv2.COLOR_RGB2BGR))
+    
     cost = 0
     point = 4
     if costs[4] != 0:
@@ -241,18 +264,25 @@ def OBDS_single(img_curr, block_ref, bbox_prev):
     
     costs[:] = 65537
 
-    if cost>1:
-        cost = cost/255
+    if cost > 1:
+        cost = cost / 255
+    
+    assert 0 <= cost <= 1, 'Cost is not in [0, 1]'
     bboxCurr = np.array([x, y, x+blockW, y+blockH, score, id, cost])     # [x1, y1, x2, y2, score, id, MAD]
 
-    return bboxCurr if cost < 0.15 else None
+    return bboxCurr
+    # return bboxCurr if cost < 0.15 else None
 
-def OBDS_all(img, outputs_prev, outputs_ref):
-    # img = img.permute(1, 2, 0).cpu().numpy()
-    outputs = np.array([result for result in (OBDS_single(img, outputs_ref[bbox_prev[5]]['data'], bbox_prev) for bbox_prev in outputs_prev) if result is not None])
+def OBDS_all(img, outputs_prev, outputs_ref, denorm=True, mean=None, std=None):
+    if denorm:
+        outputs = np.array([result for result in (OBDS_single((img*std + mean), (outputs_ref[bbox_prev[5]]['data']*std + mean), bbox_prev) for bbox_prev in outputs_prev) if result is not None])
+    else:
+        outputs = np.array([result for result in (OBDS_single(img, outputs_ref[bbox_prev[5]]['data'], bbox_prev) for bbox_prev in outputs_prev) if result is not None])
     return outputs if outputs.size>0 else None
 
-def OBDS_run(policy_meta, block_size = 128):
+def OBDS_run(policy_meta, block_size=128, denorm=True):
+    mean = np.array([123.675, 116.28, 103.53])
+    std = np.array([58.395, 57.12, 57.375])
     img = policy_meta['inputs'].squeeze(0).permute(1, 2, 0).cpu().numpy()
     outputs_prev = policy_meta['outputs'][0][0]      # Note that when calling OBDS, policy_meta['outputs'] is the output of the previous frame
     outputs_ref = policy_meta['outputs_ref']
@@ -262,7 +292,7 @@ def OBDS_run(policy_meta, block_size = 128):
     t1 = time.time()
     outputs_prev = filter_det(grid, outputs_prev, block_size, value=2)
     if outputs_prev is not None:
-        outputs = OBDS_all(img, outputs_prev, outputs_ref)
+        outputs = OBDS_all(img, outputs_prev, outputs_ref, denorm, mean, std)
     if outputs is not None:
         outputs = filter_det(grid, outputs, block_size, value=2)
     t2 = time.time()

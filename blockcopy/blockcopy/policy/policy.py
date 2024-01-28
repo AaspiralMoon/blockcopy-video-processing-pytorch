@@ -10,6 +10,9 @@ from blockcopy.policy.net import PolicyNet, build_policy_net_from_settings
 from ..utils.profiler import timings
 from torch.distributions import Bernoulli, Categorical
 
+import os, sys
+sys.path.append(os.path.abspath('/home/wiser-renjie/projects/blockcopy/demo'))
+from OBDS import generate_tensor
 
 def build_policy_from_settings(settings: dict) -> None:
     """
@@ -86,17 +89,16 @@ class PolicyStats:
         self.total = 0
 
     def add_policy_meta(self, policy_meta: dict) -> dict:
-        grid = policy_meta["grid"]
-        # num_exec = int(grid.sum())
-        num_exec = torch.sum(grid == 1)      # executed by sparse CNN
-        num_est = torch.sum(grid == 2)       # estimated by OBDS
-        num_total = int(grid.numel())
+        grid_triple = policy_meta["grid_triple"]
+        num_exec = torch.sum(grid_triple == 1)      # executed by sparse CNN
+        num_est = torch.sum(grid_triple == 2)       # estimated by OBDS
+        num_total = int(grid_triple.numel())
         policy_meta["num_exec"] = num_exec
         policy_meta["num_est"] = num_est
         policy_meta["num_total"] = num_total
         policy_meta["perc_exec"] = float(num_exec + 0.1*num_est) / num_total
 
-        self.count_images += grid.size(0)
+        self.count_images += grid_triple.size(0)
         self.exec += num_exec
         self.total += num_total
 
@@ -328,6 +330,7 @@ class PolicyTrainRL(Policy, metaclass=abc.ABCMeta):
             G = (H // self.block_size, W // self.block_size)
             grid = torch.ones((N, 1, G[0], G[1]), device=policy_meta["inputs"].device, dtype=torch.bool)  # bool?
             policy_meta["grid"] = grid
+            policy_meta["grid_triple"] = grid.to(dtype=torch.int32)
         else:
             # execute policy net
             with torch.enable_grad():
@@ -344,11 +347,13 @@ class PolicyTrainRL(Policy, metaclass=abc.ABCMeta):
                     m = Categorical(logits=grid_logits)  # create distribution, change Bernoulli to Categorical
                     grid = m.sample()  # sample
                     grid = grid.view(N, 1, GH, GW)
+                    
                 if self.at_least_one and grid.sum() == 0:
                     # if no blocks executed, execute a single one
                     grid[0, 0, 0, 0] = 1             # N, 1, H, W.       0: non-executed, 1: CNN, 2: OBDS
 
                 grid = self.stochastic_explore(grid)
+                grid = generate_tensor(0.99)
 
                 grid_probs = m.probs.view(N, GH, GW, 3).permute(0, 3, 1, 2)
                 grid_log_probs = m.log_prob(grid.view(-1)).view(N, 1, GH, GW)     # this step is related to reward
@@ -359,7 +364,7 @@ class PolicyTrainRL(Policy, metaclass=abc.ABCMeta):
                 policy_meta["grid_log_probs"] = grid_log_probs
                 policy_meta["grid_probs"] = grid_probs
                 policy_meta["grid"] = grid == 1     # 1 = True, 0, 2 = False
-                policy_meta["grid_triple"] = grid   # include 0, 1, 2      
+                policy_meta["grid_triple"] = grid   # include 0, 1, 2    
         policy_meta = self.stats.add_policy_meta(policy_meta)
         return policy_meta
 

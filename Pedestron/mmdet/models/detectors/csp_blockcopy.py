@@ -52,7 +52,7 @@ class CSPBlockCopy(CSP):
 
     def update_outputs_ref(self, out):
         if len(out[0][0]) != 0:
-            img = self.policy_meta['inputs']
+            img = self.policy_meta['inputs'].squeeze(0).permute(1, 2, 0).cpu().numpy()
             img_id = self.clip_length
             outputs_ref = self.policy_meta['outputs_ref']
             
@@ -73,23 +73,24 @@ class CSPBlockCopy(CSP):
         outputs_OBDS = self.policy_meta['outputs_OBDS']
         outputs_ref = self.policy_meta['outputs_ref']
         
-        frame_state_updated = frame_state.squeeze(0).numpy()
+        frame_state_updated = frame_state.squeeze(0).cpu().numpy()
 
         for box in outputs_OBDS:
-            x1, y1, x2, y2, _, obj_id, _ = box
-            obj_data = outputs_ref[obj_id]['data']
+            x1, y1, x2, y2, _, obj_id, _ = box.astype(np.int32)
+            obj_data = outputs_ref[obj_id]['data'].transpose(2, 0, 1)
             frame_state_updated[:, y1:y2, x1:x2] = obj_data           # check 0-255 or 0-1, RGB or BGR
 
-        frame_state_updated = torch.from_numpy(frame_state_updated).unsqueeze(0).to(dtype=frame_state.dtype)
+        frame_state_updated = torch.from_numpy(frame_state_updated).unsqueeze(0).to(dtype=frame_state.dtype).to(device=frame_state.device)
 
         return frame_state_updated
     
     def handle_OBDS(self, out_CNN):
+        print('Handling OBDS****************************\n')
         grid_triple = self.policy_meta['grid_triple'].squeeze(0).squeeze(0).cpu().numpy()
         block_size = self.policy.block_size
         
         out_OBDS_transfered = filter_det(grid_triple, self.policy_meta['outputs_OBDS'], block_size, value=0) if self.policy_meta['outputs_OBDS'] is not None else None
-        out_OBDS = OBDS_run(self.policy_meta, block_size) if len(self.policy_meta['outputs'][0][0]) > 0 and self.policy_meta['num_est'] != 0 else None
+        out_OBDS = OBDS_run(self.policy_meta, block_size, denorm=True) if self.policy_meta['outputs'][0][0].size > 0 and self.policy_meta['num_est'] != 0 else None
         
         self.policy_meta['outputs_OBDS'] = out_OBDS
         
@@ -99,7 +100,7 @@ class CSPBlockCopy(CSP):
             self.block_temporal_features._features_full.appendleft(self.policy_meta['frame_state'].detach())
 
         # Combine outputs
-        combined_out = [x for x in [out_CNN[0][0], out_OBDS, out_OBDS_transfered] if x is not None]
+        combined_out = [x for x in [out_CNN[0][0], out_OBDS, out_OBDS_transfered] if x is not None and x.size > 0]
         out = np.vstack(combined_out) if combined_out else np.array([])
         return [[out]] if out.size > 0 else out_CNN
 
@@ -128,9 +129,6 @@ class CSPBlockCopy(CSP):
                 # convert to blocks with given grid
                 x = x.to_blocks(self.policy_meta['grid'])
 
-                # added
-                if self.policy_meta['outputs'] is None:
-                    self.policy_meta['grid_triple'] = self.policy_meta['grid'].to(dtype=torch.int32)
                 x.set_grid_triple(self.policy_meta['grid_triple'])
 
                 # get frame state (latest executed frame per block)

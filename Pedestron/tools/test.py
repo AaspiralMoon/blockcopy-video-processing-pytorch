@@ -5,24 +5,24 @@ from torch.distributions import Bernoulli, Categorical
 import time
 import random
 
-B, C, H, W = 1, 3, 3, 3
-grid_logits = torch.rand(B, C, H, W)
+# B, C, H, W = 1, 3, 3, 3
+# grid_logits = torch.rand(B, C, H, W)
 
-# Step 2: Normalize along the channel dimension
-grid_logits = grid_logits / grid_logits.sum(dim=1, keepdim=True)
+# # Step 2: Normalize along the channel dimension
+# grid_logits = grid_logits / grid_logits.sum(dim=1, keepdim=True)
 
-m = Categorical(logits=grid_logits)
-grid = m.sample()  # equal probability of 0, 1, 2, 3
+# m = Categorical(logits=grid_logits)
+# grid = m.sample()  # equal probability of 0, 1, 2, 3
 
-print('grid_logits: ', grid_logits)
-print('grid_prob: ', m.probs)
-print('log_prob: ', m.log_prob(grid))
-print('grid: ', grid)
+# print('grid_logits: ', grid_logits)
+# print('grid_prob: ', m.probs)
+# print('log_prob: ', m.log_prob(grid))
+# print('grid: ', grid)
 
-grid[0, 0, 0] = 1
-print('grid_prob: ', m.probs)
-print('log_prob: ', m.log_prob(grid))
-print('grid: ', grid)
+# grid[0, 0, 0] = 1
+# print('grid_prob: ', m.probs)
+# print('log_prob: ', m.log_prob(grid))
+# print('grid: ', grid)
 
 # def stochastic_explore(grid: torch.Tensor) -> torch.Tensor:
 #     grid2 = grid.cpu()
@@ -92,14 +92,14 @@ print('grid: ', grid)
 #     outputs = policy_meta['outputs']
 
 # Define the tensors and values
-ig = torch.tensor([[0.1, 0.2], [0.3, 0.4]])
-grid = torch.tensor([[1, 2], [0, 1]])
-reward_complexity_weighted = 0.5  # This is a scalar value
-discount = 0.1  # Discount factor for when grid == 2
+# ig = torch.tensor([[0.1, 0.2], [0.3, 0.4]])
+# grid = torch.tensor([[1, 2], [0, 1]])
+# reward_complexity_weighted = 0.5  # This is a scalar value
+# discount = 0.1  # Discount factor for when grid == 2
 
-# Apply the conditional reward
-reward = ig + torch.where(grid == 2, discount * reward_complexity_weighted, reward_complexity_weighted)
-print(reward)
+# # Apply the conditional reward
+# reward = ig + torch.where(grid == 2, discount * reward_complexity_weighted, reward_complexity_weighted)
+# print(reward)
 
 # import cv2
 # import numpy as np
@@ -162,17 +162,17 @@ print(reward)
 # grid_indices = find_grid_for_boxes_vectorized(boxes, 16)
 # print(grid_indices)
 
-def find_grid_for_boxes_vectorized(boxes, grid_width, block_size=128):
-    boxes = np.atleast_2d(boxes)  # 确保 boxes 是二维的
+# def find_grid_for_boxes_vectorized(boxes, grid_width, block_size=128):
+#     boxes = np.atleast_2d(boxes)  # 确保 boxes 是二维的
     
-    center_x = (boxes[:, 0] + boxes[:, 2]) / 2
-    center_y = (boxes[:, 1] + boxes[:, 3]) / 2
+#     center_x = (boxes[:, 0] + boxes[:, 2]) / 2
+#     center_y = (boxes[:, 1] + boxes[:, 3]) / 2
 
-    grid_x = (center_x // block_size).astype(int)
-    grid_y = (center_y // block_size).astype(int)
+#     grid_x = (center_x // block_size).astype(int)
+#     grid_y = (center_y // block_size).astype(int)
 
-    grid_index = grid_y * grid_width + grid_x
-    return grid_index
+#     grid_index = grid_y * grid_width + grid_x
+#     return grid_index
 
 # 示例：单个检测框
 # single_box = [1155.67603, 369.331177, 1181.67163, 432.735107, 0.510575712]
@@ -191,12 +191,36 @@ def find_grid_for_boxes_vectorized(boxes, grid_width, block_size=128):
 # print(linear_indices)
 # print(np.isin(find_grid_for_boxes_vectorized(multiple_boxes, 16), linear_indices))
 
+# a = np.array([])
+# a =  None
+# a = []
+# a = 0
+# a = np.array([])
+# b = None
+# c = [1,2,3]
+# if not c:
+#     print('yes')
+
+
+# def generate_tensor(percentage_of_twos):
+#     shape = (1, 1, 8, 16)
+#     num_elements = shape[2] * shape[3]
+#     num_twos = int(num_elements * percentage_of_twos)
+#     num_ones_zeros = num_elements - num_twos
+#     num_ones = num_ones_zeros // 2
+#     num_zeros = num_ones_zeros - num_ones
+    
+#     # 创建一个包含指定数量 0、1 和 2 的一维数组
+#     arr = np.array([2]*num_twos + [1]*num_ones + [0]*num_zeros)
+#     np.random.shuffle(arr)  # 打乱数组
+
+#     # 将一维数组重塑为 1,1,8,16 形状的 tensor
+#     tensor = torch.tensor(arr.reshape(shape), dtype=torch.int)
+
+#     return tensor
+
+# # 示例：生成一个包含 30% 的 2 的 tensor
+# tensor = generate_tensor(0.90)
+# print(tensor==1)
 a = np.array([])
-a =  None
-a = []
-a = 0
-a = np.array([])
-b = None
-c = [1,2,3]
-if not c:
-    print('yes')
+print(a.size)
