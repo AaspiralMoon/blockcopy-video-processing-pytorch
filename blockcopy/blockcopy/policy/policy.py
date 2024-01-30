@@ -166,6 +166,37 @@ class Policy(torch.nn.Module, metaclass=abc.ABCMeta):
         grid.flatten()[idx] = 1
         return grid
 
+    def stochastic_explore_2nd(self, grid: torch.Tensor, perc: float=0.3) -> torch.Tensor:
+        grid2 = grid.cpu()
+        total = grid2.numel()
+        idx_not_exec = torch.nonzero(grid2.flatten()==0).squeeze(1).tolist()
+        idx_est = torch.nonzero(grid2.flatten()==2).squeeze(1).tolist()
+        num_est = len(idx_est)
+        target_est = int(total*perc)
+        if target_est > num_est:
+            idx = random.sample(idx_not_exec, target_est - num_est)
+            grid.flatten()[idx] = 2
+        return grid
+    
+    def stochastic_explore_3rd(self, grid: torch.Tensor) -> torch.Tensor:
+        grid2 = grid.cpu()
+        total = grid2.numel()
+        idx_not_exec = torch.nonzero(grid2.flatten() == 0).squeeze(1).tolist()
+        idx_exec = torch.nonzero(grid2.flatten() == 1).squeeze(1).tolist()
+        num_exec = len(idx_exec)
+        multiple = int(total * (1 / 16))
+        num_exec_rounded = multiple * (1 + (num_exec - 1) // multiple)
+        idx = random.sample(idx_not_exec, min(num_exec_rounded - num_exec, len(idx_not_exec)))
+        grid.flatten()[idx] = 1
+
+        num_est_needed = int(total * 0.30) - (grid == 2).sum().item()
+        idx_remaining = set(idx_not_exec) - set(idx)
+        if num_est_needed > 0:
+            idx_remaining = random.sample(list(idx_remaining), min(num_est_needed, len(idx_remaining)))
+            grid.flatten()[idx_remaining] = 2
+
+        return grid
+
     @abstractmethod
     def forward(self, policy_meta: dict) -> dict:
         """
@@ -352,8 +383,8 @@ class PolicyTrainRL(Policy, metaclass=abc.ABCMeta):
                     # if no blocks executed, execute a single one
                     grid[0, 0, 0, 0] = 1             # N, 1, H, W.       0: non-executed, 1: CNN, 2: OBDS
 
-                grid = self.stochastic_explore(grid)
-                grid = generate_tensor(0.99)
+                grid = self.stochastic_explore_3rd(grid)
+                # grid = generate_tensor(0.99)
 
                 grid_probs = m.probs.view(N, GH, GW, 3).permute(0, 3, 1, 2)
                 grid_log_probs = m.log_prob(grid.view(-1)).view(N, 1, GH, GW)     # this step is related to reward

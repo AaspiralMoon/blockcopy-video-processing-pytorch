@@ -89,7 +89,8 @@ class CSPBlockCopy(CSP):
         grid_triple = self.policy_meta['grid_triple'].squeeze(0).squeeze(0).cpu().numpy()
         block_size = self.policy.block_size
         
-        out_OBDS_transfered = filter_det(grid_triple, self.policy_meta['outputs_OBDS'], block_size, value=0) if self.policy_meta['outputs_OBDS'] is not None else None
+        outputs_from_OBDS = np.array([box for box in self.policy_meta['outputs'][0][0] if box[6] != 1]) # OBDS boxes in 0, next is also 0, the det is missing
+        out_OBDS_transfered = filter_det(grid_triple, outputs_from_OBDS, block_size, value=0) if outputs_from_OBDS.size > 0 else None
         out_OBDS = OBDS_run(self.policy_meta, block_size, denorm=True) if self.policy_meta['outputs'][0][0].size > 0 and self.policy_meta['num_est'] != 0 else None
         
         self.policy_meta['outputs_OBDS'] = out_OBDS
