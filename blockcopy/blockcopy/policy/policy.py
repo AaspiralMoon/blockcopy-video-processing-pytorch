@@ -178,7 +178,7 @@ class Policy(torch.nn.Module, metaclass=abc.ABCMeta):
             grid.flatten()[idx] = 2
         return grid
     
-    def stochastic_explore_3rd(self, grid: torch.Tensor) -> torch.Tensor:
+    def stochastic_explore_3rd(self, grid: torch.Tensor, perc: float=0.3) -> torch.Tensor:
         grid2 = grid.cpu()
         total = grid2.numel()
         idx_not_exec = torch.nonzero(grid2.flatten() == 0).squeeze(1).tolist()
@@ -189,7 +189,7 @@ class Policy(torch.nn.Module, metaclass=abc.ABCMeta):
         idx = random.sample(idx_not_exec, min(num_exec_rounded - num_exec, len(idx_not_exec)))
         grid.flatten()[idx] = 1
 
-        num_est_needed = int(total * 0.30) - (grid == 2).sum().item()
+        num_est_needed = int(total * perc) - (grid == 2).sum().item()
         idx_remaining = set(idx_not_exec) - set(idx)
         if num_est_needed > 0:
             idx_remaining = random.sample(list(idx_remaining), min(num_est_needed, len(idx_remaining)))
@@ -383,7 +383,7 @@ class PolicyTrainRL(Policy, metaclass=abc.ABCMeta):
                     # if no blocks executed, execute a single one
                     grid[0, 0, 0, 0] = 1             # N, 1, H, W.       0: non-executed, 1: CNN, 2: OBDS
 
-                grid = self.stochastic_explore_3rd(grid)
+                grid = self.stochastic_explore_3rd(grid, perc=0.3)
                 # grid = generate_tensor(0.99)
 
                 grid_probs = m.probs.view(N, GH, GW, 3).permute(0, 3, 1, 2)
