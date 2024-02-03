@@ -51,7 +51,7 @@ class CSPBlockCopy(CSP):
         torch.cuda.empty_cache()
 
     def update_outputs_ref(self, out):
-        if len(out[0][0]) != 0:
+        if out[0][0].size != 0:
             img = self.policy_meta['inputs'].squeeze(0).permute(1, 2, 0).cpu().numpy()
             img_id = self.clip_length
             outputs_ref = self.policy_meta['outputs_ref']
@@ -67,6 +67,9 @@ class CSPBlockCopy(CSP):
                 out_list[i] = np.append(out[0][0][i], [self.obj_id, 1]).tolist()
                 out[0][0] = np.array(out_list)
                 self.obj_id += 1
+        else:
+            out = [[np.empty((0, 7), dtype=out[0][0].dtype)]]
+        return out
     
     def update_frame_state(self) -> torch.Tensor:
         frame_state = self.policy_meta['frame_state']
@@ -149,7 +152,7 @@ class CSPBlockCopy(CSP):
                 
                 # new added              
                 # update self.policy_meta['outputs_ref'] and out_CNN (add obj_id and flag) in-place
-                self.update_outputs_ref(out)
+                out = self.update_outputs_ref(out)
                 
                 # Do not call OBDS on the first frame 
                 if self.policy_meta['outputs'] is not None:
@@ -164,5 +167,7 @@ class CSPBlockCopy(CSP):
             if self.policy is not None:
                 train_policy = self.clip_length % self.train_interval == 0
                 self.policy_meta = self.policy.optim(self.policy_meta, train=train_policy)
+                if train_policy == False and 'information_gain' in self.policy_meta:            # the ig is saved every N frames
+                    self.policy_meta.pop('information_gain')
         # return [out[0][0][:, :5]]
         return out[0]

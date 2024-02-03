@@ -222,5 +222,10 @@ import random
 # # 示例：生成一个包含 30% 的 2 的 tensor
 # tensor = generate_tensor(0.90)
 # print(tensor==1)
-a = np.array([])
-print(a.size)
+# a = np.array([])
+# print(a.size)
+
+bbox_ids_prev = np.empty((0, 5), dtype=np.float32)
+
+obj_id_to_idx_prev = {id: i for i, id in enumerate(bbox_ids_prev)}
+print(obj_id_to_idx_prev)

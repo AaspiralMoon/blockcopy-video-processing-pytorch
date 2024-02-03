@@ -13,7 +13,7 @@ model = dict(
         block_size=128,
         block_train_interval=4,
         block_cost_momentum=0.9,
-        block_policy_verbose=False,
+        block_policy_verbose=True,
     ),
     pretrained='modelzoo://resnet50',
     backbone=dict(

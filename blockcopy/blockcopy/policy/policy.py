@@ -428,7 +428,7 @@ class PolicyTrainRL(Policy, metaclass=abc.ABCMeta):
                 policy_meta["information_gain"] = ig
                 reward_complexity_weighted = self._get_reward_complexity(policy_meta) * self.complexity_weight_gamma
                 # reward = ig + reward_complexity_weighted
-                grid_triple_resized = F.interpolate(grid_triple.float(), size=ig.shape[2:], mode='nearest')
+                grid_triple_resized = F.interpolate(grid_triple.float(), size=ig.shape[2:], mode='nearest')                 
                 reward = ig + torch.where(grid_triple_resized == 2, 0.1 * reward_complexity_weighted, reward_complexity_weighted)   # add discount=0.1 to the running cost of OBDS blocks
                 assert reward.dim() == 4
                 assert not torch.any(torch.isnan(reward))

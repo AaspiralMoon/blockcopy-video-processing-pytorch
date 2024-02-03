@@ -198,7 +198,7 @@ class BaseDetector(nn.Module):
                     result,
                     img_norm_cfg,
                     dataset=None,
-                    score_thr=0.3,
+                    score_thr=0.0,
                     show_result=False,
                     save_result=False,
                     result_name=None):
