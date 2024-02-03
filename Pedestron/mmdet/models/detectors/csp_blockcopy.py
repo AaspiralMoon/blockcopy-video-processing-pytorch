@@ -122,5 +122,6 @@ class CSPBlockCopy(CSP):
             if self.policy is not None:
                 train_policy = self.clip_length % self.train_interval == 0
                 self.policy_meta = self.policy.optim(self.policy_meta, train=train_policy)
-        
+                if train_policy == False and 'information_gain' in self.policy_meta:            # the ig is saved every N frames
+                    self.policy_meta.pop('information_gain')
         return out[0]
