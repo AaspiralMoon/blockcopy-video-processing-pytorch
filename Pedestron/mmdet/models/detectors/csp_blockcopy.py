@@ -51,6 +51,7 @@ class CSPBlockCopy(CSP):
         torch.cuda.empty_cache()
 
     def update_outputs_ref(self, out):
+        out = [[np.array([det for det in dets if det[4] >= 0.3], dtype=out[0][0].dtype) for dets in out[0]]] # remove all the dets with <0.3 score
         if out[0][0].size != 0:
             img = self.policy_meta['inputs'].squeeze(0).permute(1, 2, 0).cpu().numpy()
             img_id = self.clip_length
@@ -88,7 +89,6 @@ class CSPBlockCopy(CSP):
         return frame_state_updated
     
     def handle_OBDS(self, out_CNN):
-        print('Handling OBDS****************************\n')
         grid_triple = self.policy_meta['grid_triple'].squeeze(0).squeeze(0).cpu().numpy()
         block_size = self.policy.block_size
         

@@ -225,7 +225,7 @@ import random
 # a = np.array([])
 # print(a.size)
 
-bbox_ids_prev = np.empty((0, 5), dtype=np.float32)
+# bbox_ids_prev = np.empty((0, 5), dtype=np.float32)
 
-obj_id_to_idx_prev = {id: i for i, id in enumerate(bbox_ids_prev)}
-print(obj_id_to_idx_prev)
+# obj_id_to_idx_prev = {id: i for i, id in enumerate(bbox_ids_prev)}
+print(19 % 1)

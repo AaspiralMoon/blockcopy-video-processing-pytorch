@@ -296,7 +296,7 @@ def OBDS_run(policy_meta, block_size=128, denorm=True):
     if outputs is not None:
         outputs = filter_det(grid, outputs, block_size, value=2)
     t2 = time.time()
-    print("OBDS time: {} ms".format((t2-t1)*1000))
+    # print("OBDS time: {} ms".format((t2-t1)*1000))
     return outputs
 
 

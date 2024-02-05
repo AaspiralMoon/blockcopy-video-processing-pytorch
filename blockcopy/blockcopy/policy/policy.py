@@ -383,7 +383,7 @@ class PolicyTrainRL(Policy, metaclass=abc.ABCMeta):
                     # if no blocks executed, execute a single one
                     grid[0, 0, 0, 0] = 1             # N, 1, H, W.       0: non-executed, 1: CNN, 2: OBDS
 
-                grid = self.stochastic_explore_3rd(grid, perc=0.3)
+                grid = self.stochastic_explore(grid)
                 # grid = generate_tensor(0.99)
 
                 grid_probs = m.probs.view(N, GH, GW, 3).permute(0, 3, 1, 2)
@@ -434,7 +434,8 @@ class PolicyTrainRL(Policy, metaclass=abc.ABCMeta):
                 assert not torch.any(torch.isnan(reward))
                 log_probs = policy_meta["grid_log_probs"]
                 reward = F.adaptive_max_pool2d(reward, output_size=log_probs.shape[2:])
-                reward[~grid] = -reward[~grid]                                                     # change to 0,1,2 version
+                # reward[~grid] = -reward[~grid]                                                     # change to 0,1,2 version
+                reward[grid_triple==0] = -reward[grid_triple==0] 
                 loss = -log_probs * reward.detach()
                 loss_policy = loss.mean()
                 assert not torch.isnan(loss_policy)

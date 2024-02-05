@@ -322,10 +322,10 @@ def main():
         if not distributed:
             model = MMDataParallel(model, device_ids=[0])
             print('# ----------- warmup ---------- #')
-            # _, _ = single_gpu_test(model, data_loader_warmup, False, False, '', args, limit=args.num_clips_warmup)
-            _, _ = single_gpu_test(model, data_loader_warmup, args.show, args.save_img, args.save_img_dir, args, limit=args.num_clips_warmup)
+            _, _ = single_gpu_test(model, data_loader_warmup, False, False, '', args, limit=args.num_clips_warmup)
+            # _, _ = single_gpu_test(model, data_loader_warmup, args.show, args.save_img, args.save_img_dir, args, limit=args.num_clips_warmup)
             
-            sys.exit()
+            # sys.exit()
             print('# -----------  eval  ---------- #')
             if args.fast:
                 assert not args.show
@@ -374,12 +374,13 @@ def main():
                     res.append(temp)
         import os
         os.makedirs(os.path.dirname(args.out), exist_ok=True)
+        os.makedirs(os.path.dirname(args.out.replace('.json', '.txt')), exist_ok=True)
         with open(args.out, 'w') as f:
             json.dump(res, f)
         MRs = validate('datasets/CityPersons/val_gt.json', args.out)
-        print('Checkpoint %d: [Reasonable: %.2f%%], [Reasonable_Small: %.2f%%], [Heavy: %.2f%%], [All: %.2f%%]'
-              % (i, MRs[0] * 100, MRs[1] * 100, MRs[2] * 100, MRs[3] * 100))
-
-
+        summary = 'Checkpoint %d: [Reasonable: %.2f%%], [Reasonable_Small: %.2f%%], [Heavy: %.2f%%], [All: %.2f%%]' % (i, MRs[0] * 100, MRs[1] * 100, MRs[2] * 100, MRs[3] * 100)
+        with open(args.out.replace('.json', '.txt'), 'w') as f:
+            f.write(summary)
+        print(summary)
 if __name__ == '__main__':
     main()

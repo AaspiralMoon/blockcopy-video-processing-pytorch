@@ -11,7 +11,7 @@ model = dict(
         block_target=0.2,
         block_complexity_weight=5,
         block_size=128,
-        block_train_interval=4,
+        block_train_interval=1,
         block_cost_momentum=0.9,
         block_policy_verbose=True,
     ),

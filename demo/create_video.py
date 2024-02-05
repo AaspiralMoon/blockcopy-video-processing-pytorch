@@ -29,7 +29,7 @@ def encode_video(input_pattern, output_video, frame_rate, temp_folder):
     
 if __name__ == '__main__':
     input_root = '/home/wiser-renjie/projects/blockcopy/Pedestron/output/'
-    exp_id = 'csp_blockcopy_t030_p030'
+    exp_id = 'csp_blockcopy_t020_bugfixed_f30'
     input_folder = os.path.join(input_root, exp_id)
     output_root = os.path.join(input_root, (exp_id + '_videos'))
     temp_folder = os.path.join(input_root, 'temp')
