@@ -28,6 +28,8 @@ def single_gpu_test(model, data_loader, show=False, save_img=False, save_img_dir
     if not static and model.module.policy.net is not None:
         model.module.policy.net.train()
     
+    num_exec_list = []
+    num_est_list = []
     results = []
     dataset = data_loader.dataset
     prog_bar = mmcv.ProgressBar(len(dataset))
@@ -125,7 +127,7 @@ def single_gpu_test(model, data_loader, show=False, save_img=False, save_img_dir
                                 t = t.astype(np.uint8)
                                 assert cv2.imwrite(output_repr_path, t)
                             
-                        # plot outut_repr
+                        # plot information gain
                         if 'information_gain' in policy_meta:
                             ig = policy_meta['information_gain'][0]
                             t = rescale_func(ig[0].cpu().numpy())
@@ -136,6 +138,13 @@ def single_gpu_test(model, data_loader, show=False, save_img=False, save_img_dir
                             t = t.astype(np.uint8)
                             assert cv2.imwrite(ig_path, t)
                         
+                        if limit == args.num_clips_eval:
+                            num_exec = policy_meta['num_exec']
+                            num_est = policy_meta['num_est']
+                            num_exec_list.append(num_exec)
+                            num_est_list.append(num_est)
+                            
+                        
             results.append(result)
 
 
@@ -143,7 +152,7 @@ def single_gpu_test(model, data_loader, show=False, save_img=False, save_img_dir
         batch_size = data['img'][0].size(0)
         for _ in range(batch_size):
             prog_bar.update()
-    return results, num_images
+    return results, num_images, num_exec_list, num_est_list
 
 
 def multi_gpu_test(model, data_loader, tmpdir=None):
@@ -322,8 +331,8 @@ def main():
         if not distributed:
             model = MMDataParallel(model, device_ids=[0])
             print('# ----------- warmup ---------- #')
-            _, _ = single_gpu_test(model, data_loader_warmup, False, False, '', args, limit=args.num_clips_warmup)
-            # _, _ = single_gpu_test(model, data_loader_warmup, args.show, args.save_img, args.save_img_dir, args, limit=args.num_clips_warmup)
+            _, _, _, _ = single_gpu_test(model, data_loader_warmup, False, False, '', args, limit=args.num_clips_warmup)
+            # _, _, _, _ = single_gpu_test(model, data_loader_warmup, args.show, args.save_img, args.save_img_dir, args, limit=args.num_clips_warmup)
             
             # sys.exit()
             print('# -----------  eval  ---------- #')
@@ -341,7 +350,7 @@ def main():
             
             torch.cuda.synchronize()
             start = time.perf_counter()
-            outputs, num_images = single_gpu_test(model, data_loader, args.show, args.save_img, args.save_img_dir, args, limit=args.num_clips_eval)
+            outputs, num_images, num_exec_list, num_est_list = single_gpu_test(model, data_loader, args.show, args.save_img, args.save_img_dir, args, limit=args.num_clips_eval)
            
             torch.cuda.synchronize()
             stop = time.perf_counter()
@@ -350,7 +359,8 @@ def main():
                 flops, cnt = model.compute_average_flops_cost()
                 print(f'Computational cost (avg per img): {flops/1e9:.3f} GMACs over {cnt} images')
                 print(model.total_flops_cost_repr(submodule_depth=2))
-            print(f'Average FPS: {num_images/(stop - start):.2f} over {num_images} images')
+            avg_fps = num_images/(stop - start)
+            print(f'Average FPS: {avg_fps:.2f} over {num_images} images')
 
         else:
             raise NotImplementedError
@@ -378,7 +388,13 @@ def main():
         with open(args.out, 'w') as f:
             json.dump(res, f)
         MRs = validate('datasets/CityPersons/val_gt.json', args.out)
-        summary = 'Checkpoint %d: [Reasonable: %.2f%%], [Reasonable_Small: %.2f%%], [Heavy: %.2f%%], [All: %.2f%%]' % (i, MRs[0] * 100, MRs[1] * 100, MRs[2] * 100, MRs[3] * 100)
+        summary = ('Checkpoint %d: [Reasonable: %.2f%%], [Reasonable_Small: %.2f%%], [Heavy: %.2f%%], [All: %.2f%%]\n'
+                    'Execution: [min: %.2f, max: %.2f, avg: %.2f], Estimation: [min: %.2f, max: %.2f, avg: %.2f]\n'
+                    'Computational Cost: [%.2f GMACs], Speed: [%.2f FPS]') % (i, MRs[0] * 100, MRs[1] * 100, MRs[2] * 100, MRs[3] * 100,
+                                                                                num_exec_list.min(), num_exec_list.max(), num_exec_list.mean(),
+                                                                                num_est_list.min(), num_est_list.max(), num_est_list.mean(),
+                                                                                flops, avg_fps
+                                                                            )
         with open(args.out.replace('.json', '.txt'), 'w') as f:
             f.write(summary)
         print(summary)
