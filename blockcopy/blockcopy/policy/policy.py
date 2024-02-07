@@ -162,7 +162,7 @@ class Policy(torch.nn.Module, metaclass=abc.ABCMeta):
         num_exec = len(idx_exec)
         multiple = int(total * (1 / 16))
         num_exec_rounded = multiple * (1 + (num_exec - 1) // multiple)
-        idx = random.sample(idx_not_exec, num_exec_rounded - num_exec)
+        idx = random.sample(idx_not_exec, min(num_exec_rounded - num_exec, len(idx_not_exec)))
         grid.flatten()[idx] = 1
         return grid
 
@@ -315,7 +315,7 @@ class PolicyTrainRL(Policy, metaclass=abc.ABCMeta):
         policy_net: PolicyNet,
         information_gain: InformationGain,
         cost_momentum: float = 0.9,
-        at_least_one: bool = False,
+        at_least_one: bool = True,
         quantize_number_exec: float = 0,
         verbose: bool = False,
     ):
@@ -379,7 +379,7 @@ class PolicyTrainRL(Policy, metaclass=abc.ABCMeta):
                     grid = m.sample()  # sample
                     grid = grid.view(N, 1, GH, GW)
                     
-                if self.at_least_one and grid.sum() == 0:
+                if self.at_least_one and (grid == 1).sum() == 0:
                     # if no blocks executed, execute a single one
                     grid[0, 0, 0, 0] = 1             # N, 1, H, W.       0: non-executed, 1: CNN, 2: OBDS
 
@@ -427,9 +427,12 @@ class PolicyTrainRL(Policy, metaclass=abc.ABCMeta):
                 ig = self._get_information_gain(policy_meta)
                 policy_meta["information_gain"] = ig
                 reward_complexity_weighted = self._get_reward_complexity(policy_meta) * self.complexity_weight_gamma
-                # reward = ig + reward_complexity_weighted
-                grid_triple_resized = F.interpolate(grid_triple.float(), size=ig.shape[2:], mode='nearest')                 
-                reward = ig + torch.where(grid_triple_resized == 2, 0.1 * reward_complexity_weighted, reward_complexity_weighted)   # add discount=0.1 to the running cost of OBDS blocks
+                grid_triple_resized = F.interpolate(grid_triple.float(), size=ig.shape[2:], mode='nearest')
+                reward_complexity_weighted_tensor = torch.tensor(reward_complexity_weighted, device=grid_triple_resized.device)
+                modified_reward_complexity_weighted = torch.where(grid_triple_resized == 2, 
+                                                                  torch.where(reward_complexity_weighted_tensor < 0, 0.5 * reward_complexity_weighted_tensor, 2 * reward_complexity_weighted_tensor), 
+                                                                  reward_complexity_weighted_tensor)
+                reward = ig + modified_reward_complexity_weighted
                 assert reward.dim() == 4
                 assert not torch.any(torch.isnan(reward))
                 log_probs = policy_meta["grid_log_probs"]

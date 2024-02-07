@@ -51,7 +51,7 @@ class CSPBlockCopy(CSP):
         torch.cuda.empty_cache()
 
     def update_outputs_ref(self, out):
-        out = [[np.array([det for det in dets if det[4] >= 0.3], dtype=out[0][0].dtype) for dets in out[0]]] # remove all the dets with <0.3 score
+        # out = [[np.array([det for det in dets if det[4] >= 0.3], dtype=out[0][0].dtype) for dets in out[0]]] # remove all the dets with <0.3 score
         if out[0][0].size != 0:
             img = self.policy_meta['inputs'].squeeze(0).permute(1, 2, 0).cpu().numpy()
             img_id = self.clip_length
@@ -121,8 +121,8 @@ class CSPBlockCopy(CSP):
                 # if no blocks to be executed, just copy outputs
                 self.policy_meta = self.policy_meta.copy()
                 out = self.policy_meta['outputs']
-            elif self.policy_meta['num_exec'] == 0 and self.policy_meta['num_est'] != 0:
-                raise NotImplementedError
+            # elif self.policy_meta['num_exec'] == 0 and self.policy_meta['num_est'] != 0:
+            #     raise NotImplementedError
             else:
                 # convert inputs into tensorwrapper object
                 x = blockcopy.to_tensorwrapper(img)       # img: [1, 3, 1024, 2048], torch

@@ -228,4 +228,25 @@ import random
 # bbox_ids_prev = np.empty((0, 5), dtype=np.float32)
 
 # obj_id_to_idx_prev = {id: i for i, id in enumerate(bbox_ids_prev)}
-print(19 % 1)
+
+import torch
+
+# Example scalar float for reward_complexity_weighted
+reward_complexity_weighted = -0.5
+
+# Example tensor for grid_triple_resized
+grid_triple_resized = torch.tensor([0, 2, 1, 2, 2])
+
+# Convert scalar to tensor
+reward_complexity_weighted_tensor = torch.tensor(reward_complexity_weighted, device="cpu")  # Use "cuda" if on GPU
+
+# Apply conditional modification
+modified_reward_complexity_weighted = torch.where(
+    grid_triple_resized == 2,
+    torch.where(reward_complexity_weighted_tensor < 0, 0.1 * reward_complexity_weighted_tensor, 10 * reward_complexity_weighted_tensor),
+    reward_complexity_weighted_tensor
+)
+
+print("Modified Reward:", modified_reward_complexity_weighted)
+print((grid_triple_resized==2).sum())
+
