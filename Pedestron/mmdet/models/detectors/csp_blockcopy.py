@@ -121,8 +121,8 @@ class CSPBlockCopy(CSP):
                 # if no blocks to be executed, just copy outputs
                 self.policy_meta = self.policy_meta.copy()
                 out = self.policy_meta['outputs']
-            # elif self.policy_meta['num_exec'] == 0 and self.policy_meta['num_est'] != 0:
-            #     raise NotImplementedError
+            elif self.policy_meta['num_exec'] == 0 and self.policy_meta['num_est'] != 0:
+                raise NotImplementedError
             else:
                 # convert inputs into tensorwrapper object
                 x = blockcopy.to_tensorwrapper(img)       # img: [1, 3, 1024, 2048], torch

@@ -30,6 +30,8 @@ def single_gpu_test(model, data_loader, show=False, save_img=False, save_img_dir
     
     num_exec_list = []
     num_est_list = []
+    num_copy_list = []
+    num_total = 0
     results = []
     dataset = data_loader.dataset
     prog_bar = mmcv.ProgressBar(len(dataset))
@@ -138,21 +140,24 @@ def single_gpu_test(model, data_loader, show=False, save_img=False, save_img_dir
                             t = t.astype(np.uint8)
                             assert cv2.imwrite(ig_path, t)
                         
+                        num_total = policy_meta['num_total'] if 'num_total' in policy_meta else num_total
                         if limit == args.num_clips_eval:
-                            num_exec = policy_meta['num_exec']
-                            num_est = policy_meta['num_est']
-                            num_exec_list.append(num_exec)
-                            num_est_list.append(num_est)
-                            
+                            if 'num_exec' in policy_meta and policy_meta['num_exec'] != num_total:
+                                num_exec_list.append(policy_meta['num_exec'])
+                            if 'num_est' in policy_meta and policy_meta['num_exec'] != num_total:
+                                num_est_list.append(policy_meta['num_est'])
+                            if 'num_copy' in policy_meta and policy_meta['num_exec'] != num_total:
+                                num_copy_list.append(policy_meta['num_copy'])
                         
             results.append(result)
-
-
 
         batch_size = data['img'][0].size(0)
         for _ in range(batch_size):
             prog_bar.update()
-    return results, num_images, num_exec_list, num_est_list
+    
+    num_exec_list = [0] if not num_exec_list else num_exec_list
+    num_est_list = [0] if not num_est_list else num_est_list
+    return results, num_images, np.array(num_exec_list), np.array(num_est_list), np.array(num_copy_list), num_total
 
 
 def multi_gpu_test(model, data_loader, tmpdir=None):
@@ -331,8 +336,8 @@ def main():
         if not distributed:
             model = MMDataParallel(model, device_ids=[0])
             print('# ----------- warmup ---------- #')
-            _, _, _, _ = single_gpu_test(model, data_loader_warmup, False, False, '', args, limit=args.num_clips_warmup)
-            # _, _, _, _ = single_gpu_test(model, data_loader_warmup, args.show, args.save_img, args.save_img_dir, args, limit=args.num_clips_warmup)
+            _, _, _, _, _, _ = single_gpu_test(model, data_loader_warmup, False, False, '', args, limit=args.num_clips_warmup)
+            # _, _, _, _, _, _ = single_gpu_test(model, data_loader_warmup, args.show, args.save_img, args.save_img_dir, args, limit=args.num_clips_warmup)
             
             # sys.exit()
             print('# -----------  eval  ---------- #')
@@ -350,7 +355,7 @@ def main():
             
             torch.cuda.synchronize()
             start = time.perf_counter()
-            outputs, num_images, num_exec_list, num_est_list = single_gpu_test(model, data_loader, args.show, args.save_img, args.save_img_dir, args, limit=args.num_clips_eval)
+            outputs, num_images, num_exec_list, num_est_list, num_copy_list, num_total = single_gpu_test(model, data_loader, args.show, args.save_img, args.save_img_dir, args, limit=args.num_clips_eval)
            
             torch.cuda.synchronize()
             stop = time.perf_counter()
@@ -389,11 +394,12 @@ def main():
             json.dump(res, f)
         MRs = validate('datasets/CityPersons/val_gt.json', args.out)
         summary = ('Checkpoint %d: [Reasonable: %.2f%%], [Reasonable_Small: %.2f%%], [Heavy: %.2f%%], [All: %.2f%%]\n'
-                    'Execution: [min: %.2f, max: %.2f, avg: %.2f], Estimation: [min: %.2f, max: %.2f, avg: %.2f]\n'
+                    'Execution: [min: %.2f%%, max: %.2f%%, avg: %.2f%%], Estimation: [min: %.2f%%, max: %.2f%%, avg: %.2f%%], Copy: [min: %.2f%%, max: %.2f%%, avg: %.2f%%]\n'
                     'Computational Cost: [%.2f GMACs], Speed: [%.2f FPS]') % (i, MRs[0] * 100, MRs[1] * 100, MRs[2] * 100, MRs[3] * 100,
-                                                                                num_exec_list.min(), num_exec_list.max(), num_exec_list.mean(),
-                                                                                num_est_list.min(), num_est_list.max(), num_est_list.mean(),
-                                                                                flops, avg_fps
+                                                                                num_exec_list.min()*100/num_total, num_exec_list.max()*100/num_total, num_exec_list.mean()*100/num_total,
+                                                                                num_est_list.min()*100/num_total, num_est_list.max()*100/num_total, num_est_list.mean()*100/num_total,
+                                                                                num_copy_list.min()*100/num_total, num_copy_list.max()*100/num_total, num_copy_list.mean()*100/num_total,
+                                                                                flops/1e9, avg_fps
                                                                             )
         with open(args.out.replace('.json', '.txt'), 'w') as f:
             f.write(summary)

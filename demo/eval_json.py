@@ -4,7 +4,7 @@ from tools.cityPerson.eval_demo import validate
 
 if __name__ == "__main__":
     result_root = '/home/wiser-renjie/projects/blockcopy/Pedestron/results'
-    exp_id = 'csp_blockcopy_t030'
+    exp_id = 'csp_blockcopy_t020_0.1_10'
     json_path = os.path.join(result_root, exp_id + '.json')
 
     MRs = validate('/home/wiser-renjie/projects/blockcopy/Pedestron/datasets/CityPersons/val_gt.json', json_path)

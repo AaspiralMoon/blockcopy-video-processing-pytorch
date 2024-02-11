@@ -90,12 +90,13 @@ class PolicyStats:
 
     def add_policy_meta(self, policy_meta: dict) -> dict:
         grid_triple = policy_meta["grid_triple"]
-        num_exec = torch.sum(grid_triple == 1)      # executed by sparse CNN
-        num_est = torch.sum(grid_triple == 2)       # estimated by OBDS
+        num_exec = int((grid_triple == 1).sum())      # executed by sparse CNN
+        num_est = int((grid_triple == 2).sum())       # estimated by OBDS
         num_total = int(grid_triple.numel())
         policy_meta["num_exec"] = num_exec
         policy_meta["num_est"] = num_est
         policy_meta["num_total"] = num_total
+        policy_meta["num_copy"] = num_total - num_est - num_exec
         policy_meta["perc_exec"] = float(num_exec + 0.1*num_est) / num_total
 
         self.count_images += grid_triple.size(0)
@@ -430,7 +431,7 @@ class PolicyTrainRL(Policy, metaclass=abc.ABCMeta):
                 grid_triple_resized = F.interpolate(grid_triple.float(), size=ig.shape[2:], mode='nearest')
                 reward_complexity_weighted_tensor = torch.tensor(reward_complexity_weighted, device=grid_triple_resized.device)
                 modified_reward_complexity_weighted = torch.where(grid_triple_resized == 2, 
-                                                                  torch.where(reward_complexity_weighted_tensor < 0, 0.5 * reward_complexity_weighted_tensor, 2 * reward_complexity_weighted_tensor), 
+                                                                  torch.where(reward_complexity_weighted_tensor < 0, 0.2 * reward_complexity_weighted_tensor, 8 * reward_complexity_weighted_tensor), 
                                                                   reward_complexity_weighted_tensor)
                 reward = ig + modified_reward_complexity_weighted
                 assert reward.dim() == 4
