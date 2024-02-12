@@ -136,15 +136,15 @@ def single_gpu_test(model, data_loader, show=False, save_img=False, save_img_dir
                                 num_exec_list.append(policy_meta['num_exec'])
                             if 'num_est' in policy_meta and policy_meta['num_exec'] != num_total:
                                 num_est_list.append(policy_meta['num_est'])        
-                                           
+                                 
             results.append(result)
             
         batch_size = data['img'][0].size(0)
         for _ in range(batch_size):
             prog_bar.update()
             
-    num_exec_list = [0] if not num_exec_list else num_exec_list
-    num_est_list = [0] if not num_est_list else num_est_list
+    num_exec_list = np.array([0]) if not num_exec_list else num_exec_list
+    num_est_list = np.zeros_like(num_exec_list) if not num_est_list else num_est_list
     return results, num_images, np.array(num_exec_list), np.array(num_est_list), num_total
 
 
@@ -382,10 +382,11 @@ def main():
             json.dump(res, f)
         MRs = validate('datasets/CityPersons/val_gt.json', args.out)
         summary = ('Checkpoint %d: [Reasonable: %.2f%%], [Reasonable_Small: %.2f%%], [Heavy: %.2f%%], [All: %.2f%%]\n'
-                    'Execution: [min: %.2f%%, max: %.2f%%, avg: %.2f%%], Estimation: [min: %.2f%%, max: %.2f%%, avg: %.2f%%]\n'
+                    'Execution: [min: %.2f%%, max: %.2f%%, avg: %.2f%%], Estimation: [min: %.2f%%, max: %.2f%%, avg: %.2f%%], Copy: [min: %.2f%%, max: %.2f%%, avg: %.2f%%]\n'
                     'Computational Cost: [%.2f GMACs], Speed: [%.2f FPS]') % (i, MRs[0] * 100, MRs[1] * 100, MRs[2] * 100, MRs[3] * 100,
                                                                                 num_exec_list.min()*100/num_total, num_exec_list.max()*100/num_total, num_exec_list.mean()*100/num_total,
                                                                                 num_est_list.min()*100/num_total, num_est_list.max()*100/num_total, num_est_list.mean()*100/num_total,
+                                                                                (num_total-num_exec_list-num_est_list).min()*100/num_total, (num_total-num_exec_list-num_est_list).max()*100/num_total, (num_total-num_exec_list-num_est_list).mean()*100/num_total,
                                                                                 flops/1e9, avg_fps
                                                                             )
         with open(args.out.replace('.json', '.txt'), 'w') as f:
