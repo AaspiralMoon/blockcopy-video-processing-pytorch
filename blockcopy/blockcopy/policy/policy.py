@@ -96,7 +96,6 @@ class PolicyStats:
         policy_meta["num_exec"] = num_exec
         policy_meta["num_est"] = num_est
         policy_meta["num_total"] = num_total
-        policy_meta["num_copy"] = num_total - num_est - num_exec
         policy_meta["perc_exec"] = float(num_exec + 0.1*num_est) / num_total
 
         self.count_images += grid_triple.size(0)
@@ -385,7 +384,8 @@ class PolicyTrainRL(Policy, metaclass=abc.ABCMeta):
                     grid[0, 0, 0, 0] = 1             # N, 1, H, W.       0: non-executed, 1: CNN, 2: OBDS
 
                 grid = self.stochastic_explore(grid)
-                # grid = generate_tensor(0.99)
+                # grid = torch.full_like(grid, fill_value=2)
+                # grid[0, 0, 0, 0] = 1
 
                 grid_probs = m.probs.view(N, GH, GW, 3).permute(0, 3, 1, 2)
                 grid_log_probs = m.log_prob(grid.view(-1)).view(N, 1, GH, GW)     # this step is related to reward

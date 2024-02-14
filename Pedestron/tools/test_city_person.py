@@ -30,7 +30,6 @@ def single_gpu_test(model, data_loader, show=False, save_img=False, save_img_dir
     
     num_exec_list = []
     num_est_list = []
-    num_copy_list = []
     num_total = 0
     results = []
     dataset = data_loader.dataset
@@ -146,8 +145,6 @@ def single_gpu_test(model, data_loader, show=False, save_img=False, save_img_dir
                                 num_exec_list.append(policy_meta['num_exec'])
                             if 'num_est' in policy_meta and policy_meta['num_exec'] != num_total:
                                 num_est_list.append(policy_meta['num_est'])
-                            if 'num_copy' in policy_meta and policy_meta['num_exec'] != num_total:
-                                num_copy_list.append(policy_meta['num_copy'])
                         
             results.append(result)
 
@@ -155,9 +152,9 @@ def single_gpu_test(model, data_loader, show=False, save_img=False, save_img_dir
         for _ in range(batch_size):
             prog_bar.update()
     
-    num_exec_list = [0] if not num_exec_list else num_exec_list
-    num_est_list = [0] if not num_est_list else num_est_list
-    return results, num_images, np.array(num_exec_list), np.array(num_est_list), np.array(num_copy_list), num_total
+    num_exec_list = np.array([0]) if not num_exec_list else num_exec_list
+    num_est_list = np.zeros_like(num_exec_list) if not num_est_list else num_est_list
+    return results, num_images, np.array(num_exec_list), np.array(num_est_list), num_total
 
 
 def multi_gpu_test(model, data_loader, tmpdir=None):
@@ -336,8 +333,8 @@ def main():
         if not distributed:
             model = MMDataParallel(model, device_ids=[0])
             print('# ----------- warmup ---------- #')
-            _, _, _, _, _, _ = single_gpu_test(model, data_loader_warmup, False, False, '', args, limit=args.num_clips_warmup)
-            # _, _, _, _, _, _ = single_gpu_test(model, data_loader_warmup, args.show, args.save_img, args.save_img_dir, args, limit=args.num_clips_warmup)
+            _, _, _, _, _ = single_gpu_test(model, data_loader_warmup, False, False, '', args, limit=args.num_clips_warmup)
+            # _, _, _, _, _= single_gpu_test(model, data_loader_warmup, args.show, args.save_img, args.save_img_dir, args, limit=args.num_clips_warmup)
             
             # sys.exit()
             print('# -----------  eval  ---------- #')
@@ -355,7 +352,7 @@ def main():
             
             torch.cuda.synchronize()
             start = time.perf_counter()
-            outputs, num_images, num_exec_list, num_est_list, num_copy_list, num_total = single_gpu_test(model, data_loader, args.show, args.save_img, args.save_img_dir, args, limit=args.num_clips_eval)
+            outputs, num_images, num_exec_list, num_est_list, num_total = single_gpu_test(model, data_loader, args.show, args.save_img, args.save_img_dir, args, limit=args.num_clips_eval)
            
             torch.cuda.synchronize()
             stop = time.perf_counter()
@@ -398,7 +395,7 @@ def main():
                     'Computational Cost: [%.2f GMACs], Speed: [%.2f FPS]') % (i, MRs[0] * 100, MRs[1] * 100, MRs[2] * 100, MRs[3] * 100,
                                                                                 num_exec_list.min()*100/num_total, num_exec_list.max()*100/num_total, num_exec_list.mean()*100/num_total,
                                                                                 num_est_list.min()*100/num_total, num_est_list.max()*100/num_total, num_est_list.mean()*100/num_total,
-                                                                                num_copy_list.min()*100/num_total, num_copy_list.max()*100/num_total, num_copy_list.mean()*100/num_total,
+                                                                                (num_total-num_exec_list-num_est_list).min()*100/num_total, (num_total-num_exec_list-num_est_list).max()*100/num_total, (num_total-num_exec_list-num_est_list).mean()*100/num_total,
                                                                                 flops/1e9, avg_fps
                                                                             )
         with open(args.out.replace('.json', '.txt'), 'w') as f:
