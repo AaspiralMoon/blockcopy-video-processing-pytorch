@@ -72,13 +72,25 @@ class CSPBlockCopy(CSP):
             out = [[np.empty((0, 7), dtype=out[0][0].dtype)]]
         return out
     
-    def update_frame_state(self) -> torch.Tensor:
+    def update_frame_state(self) -> torch.Tensor:       # added
+        block_size = self.policy.block_size
+        img = self.policy_meta['inputs'].squeeze(0).cpu().numpy()
+        grid_triple = self.policy_meta['grid_triple']
         frame_state = self.policy_meta['frame_state']
         outputs_OBDS = self.policy_meta['outputs_OBDS']
         outputs_ref = self.policy_meta['outputs_ref']
         
         frame_state_updated = frame_state.squeeze(0).cpu().numpy()
 
+        for i in range(grid_triple.shape[2]):  # Height index
+            for j in range(grid_triple.shape[3]):  # Width index
+                if grid_triple[0, 0, i, j] == 2:
+                    # Calculate block start and end indices
+                    start_h, end_h = i * block_size, (i + 1) * block_size
+                    start_w, end_w = j * block_size, (j + 1) * block_size
+                    # Copy block from img to frame_state
+                    frame_state_updated[start_h:end_h, start_w:end_w, :] = img[start_h:end_h, start_w:end_w, :]
+        
         for box in outputs_OBDS:
             x1, y1, x2, y2, _, obj_id, _ = box.astype(np.int32)
             obj_data = outputs_ref[obj_id]['data'].transpose(2, 0, 1)
@@ -100,8 +112,8 @@ class CSPBlockCopy(CSP):
         
         if out_OBDS is not None:
             self.policy_meta['frame_state'] = self.update_frame_state()
-            self.block_temporal_features._features_full.popleft()
-            self.block_temporal_features._features_full.appendleft(self.policy_meta['frame_state'].detach())
+            # self.block_temporal_features._features_full.popleft()
+            # self.block_temporal_features._features_full.appendleft(self.policy_meta['frame_state'].detach())
 
         # Combine outputs
         combined_out = [x for x in [out_CNN[0][0], out_OBDS, out_OBDS_transfered] if x is not None and x.size > 0]

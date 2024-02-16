@@ -270,8 +270,8 @@ def OBDS_single(img_curr, block_ref, bbox_prev):
     assert 0 <= cost <= 1, 'Cost is not in [0, 1]'
     bboxCurr = np.array([x, y, x+blockW, y+blockH, score, id, cost])     # [x1, y1, x2, y2, score, id, MAD]
 
-    return bboxCurr
-    # return bboxCurr if cost < 0.15 else None
+    # return bboxCurr
+    return bboxCurr if cost < 0.15 else None
 
 def OBDS_all(img, outputs_prev, outputs_ref, denorm=True, mean=None, std=None):
     if denorm:
