@@ -24,6 +24,8 @@ from mmdet.models import build_detector
 
 from tools.cityPerson.eval_demo import validate
 
+from skimage.measure import block_reduce
+
 # python ./tools/test_city_person.py configs/elephant/cityperson/csp_r50_clip_blockcopy_030.py ./checkpoints/csp/epoch_ 72 73 --out results/test.json  --save_img --save_img_dir output/test --num-clips-warmup 400 --num-clips-eval -1
 
 def _costMAD(block1, block2):
@@ -110,7 +112,8 @@ def ES_multiprocess(img, block_ref, box_prev, margin, num_processes=None):
         min_mad = min_mad / 255
     
     assert 0 <= min_mad <= 1, 'mAD is not in [0, 1]'
-    return box if min_mad < 0.12 else None
+    # return box if min_mad < 0.12 else None
+    return box
 
 def OBDS_single(img_curr, block_ref, bbox_prev):
     h, w = img_curr.shape[:2]
@@ -284,6 +287,7 @@ def single_gpu_test(model, data_loader, cfg, show=False, save_img=False, save_im
                 img_root = cfg.data.test['img_prefix']
                 frame = cv2.imread(osp.join(img_root, img_filename))
                 frame_copy = frame.copy()
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)      # grayscale
                 
                 if frame_id == 0:
                     frame_ref = frame
