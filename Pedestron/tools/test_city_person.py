@@ -63,6 +63,7 @@ def single_gpu_test(model, data_loader, show=False, save_img=False, save_img_dir
                 new_data['img_meta'] = [data['img_meta'][frame_id]]
                 with torch.no_grad():
                     result = model(return_loss=False, rescale=not show, **new_data)
+                    print(result)
                     num_images += 1
 
                 # VISUALIZATIONS
