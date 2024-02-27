@@ -15,6 +15,7 @@ import copy
 import os, sys
 sys.path.append(os.path.abspath('/home/wiser-renjie/projects/blockcopy/demo'))
 from OBDS import OBDS_run, filter_det
+from ES import ES_run
 
 @DETECTORS.register_module
 class CSPBlockCopy(CSP):
@@ -106,7 +107,7 @@ class CSPBlockCopy(CSP):
         
         outputs_from_OBDS = np.array([box for box in self.policy_meta['outputs'][0][0] if box[6] != 1]) # OBDS boxes in 0, next is also 0, the det is missing
         out_OBDS_transfered = filter_det(grid_triple, outputs_from_OBDS, block_size, value=0) if outputs_from_OBDS.size > 0 else None
-        out_OBDS = OBDS_run(self.policy_meta, block_size, denorm=True) if self.policy_meta['outputs'][0][0].size > 0 and self.policy_meta['num_est'] != 0 else None
+        out_OBDS = ES_run(self.policy_meta, block_size, denorm=True, margin=30) if self.policy_meta['outputs'][0][0].size > 0 and self.policy_meta['num_est'] != 0 else None
         
         self.policy_meta['outputs_OBDS'] = out_OBDS
         

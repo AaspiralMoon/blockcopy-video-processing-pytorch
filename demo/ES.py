@@ -126,161 +126,50 @@ def plot_center(image, bboxes):
         cv2.circle(image, (center_x, center_y), 3, (0, 0, 255), -1)  # Red color, filled circle
     return image
 
-def OBDS_single(img_curr, block_ref, bbox_prev):
-    h, w = img_curr.shape[:2]
+def ES_single(img, block_ref, box_prev, margin):
+    H, W = img.shape[:2]
+    min_mad = float('inf')
+    x_best = 0
+    y_best = 0
     
-    x1, y1, x2, y2 = bbox_prev[:4].astype(np.int32)
-    
-    score, id = bbox_prev[4], bbox_prev[5]
-
+    # Calculate the bounding box for the search area based on box_prev and margin
+    x1, y1, x2, y2 = box_prev[:4].astype(np.int32)
     blockW = x2 - x1
     blockH = y2 - y1
+    score, id = box_prev[4], box_prev[5]
     
-    costs = np.ones((9))*65537
-    computations = 0
-    bboxCurr = []
+    search_area_x1 = max(x1 - margin, 0)
+    search_area_y1 = max(y1 - margin, 0)
+    search_area_x2 = min(x2 + margin, W)
+    search_area_y2 = min(y2 + margin, H)
     
-    # Initialize LDSP and SDSP
-    LDSP = [[0, -2], [-1, -1], [1, -1], [-2, 0], [0, 0], [2, 0], [-1, 1], [1, 1], [0, 2]]
-    SDSP = [[0, -1], [-1, 0], [0, 0], [1, 0], [0, 1]]
+    # Iterate over the constrained search area
+    for y in range(search_area_y1, search_area_y2 - blockH + 1):
+        for x in range(search_area_x1, search_area_x2 - blockW + 1):
+            # Check if the current position is within bounds considering the margin
+            if _checkBounded(x, y, W, H, blockW, blockH):
+                img_block = img[y:y+blockH, x:x+blockW]
+                mad = _costMAD(img_block, block_ref)
+                if mad < min_mad:
+                    min_mad = mad
+                    x_best, y_best = x, y
     
-    x = x1       # (x, y) large diamond center point
-    y = y1
+    if min_mad > 1:
+        min_mad = min_mad / 255
     
-    # start search
-    costs[4] = _costMAD(img_curr[y1:y2, x1:x2], block_ref)
+    assert 0 <= min_mad <= 1, 'mAD is not in [0, 1]'
     
-    # print('Saving**************************************************************************\n')
-    # cv2.imwrite('/home/wiser-renjie/projects/blockcopy/Pedestron/output/test3/img_curr.jpg', cv2.cvtColor(img_curr.astype(np.float32), cv2.COLOR_RGB2BGR))
-    # cv2.imwrite('/home/wiser-renjie/projects/blockcopy/Pedestron/output/test3/block_ref.jpg', cv2.cvtColor(block_ref.astype(np.float32), cv2.COLOR_RGB2BGR))
-    
-    cost = 0
-    point = 4
-    if costs[4] != 0:
-        computations += 1
-        for k in range(9):
-            yDiamond = y + LDSP[k][1]              # (xSearch, ySearch): points at the diamond
-            xDiamond = x + LDSP[k][0]
-            if not _checkBounded(xDiamond, yDiamond, w, h, blockW, blockH):
-                continue
-            if k == 4:
-                continue
-            costs[k] = _costMAD(img_curr[yDiamond:yDiamond+blockH, xDiamond:xDiamond+blockW], block_ref)
-            computations += 1
+    box = np.array([x_best, y_best, x_best+blockW, y_best+blockH, score, id, min_mad])
+    return box
 
-        point = np.argmin(costs)
-        cost = costs[point]
-    
-    SDSPFlag = 1            # SDSPFlag = 1, trigger SDSP
-    if point != 4:                
-        SDSPFlag = 0
-        cornerFlag = 1      # cornerFlag = 1: the MBD point is at the corner
-        if (np.abs(LDSP[point][0]) == np.abs(LDSP[point][1])):  # check if the MBD point is at the edge
-            cornerFlag = 0
-        xLast = x
-        yLast = y
-        x += LDSP[point][0]
-        y += LDSP[point][1]
-        costs[:] = 65537
-        costs[4] = cost
-
-    while SDSPFlag == 0:       # start iteration until the SDSP is triggered
-        if cornerFlag == 1:    # next MBD point is at the corner
-            for k in range(9):
-                yDiamond = y + LDSP[k][1]
-                xDiamond = x + LDSP[k][0]
-                if not _checkBounded(xDiamond, yDiamond, w, h, blockW, blockH):
-                    continue
-                if k == 4:
-                    continue
-
-                if ((xDiamond >= xLast - 1) and   # avoid redundant computations from the last search
-                    (xDiamond <= xLast + 1) and
-                    (yDiamond >= yLast - 1) and
-                    (yDiamond <= yLast + 1)):
-                    continue
-                else:
-                    costs[k] = _costMAD(img_curr[yDiamond:yDiamond+blockH, xDiamond:xDiamond+blockW], block_ref)
-                    computations += 1
-        else:                                # next MBD point is at the edge
-            lst = []
-            if point == 1:                   # the point positions that needs computation
-                lst = np.array([0, 1, 3])
-            elif point == 2:
-                lst = np.array([0, 2, 5])
-            elif point == 6:
-                lst = np.array([3, 6, 8])
-            elif point == 7:
-                lst = np.array([5, 7, 8])
-
-            for idx in lst:
-                yDiamond = y + LDSP[idx][1]
-                xDiamond = x + LDSP[idx][0]
-                if not _checkBounded(xDiamond, yDiamond, w, h, blockW, blockH):
-                    continue
-                else:
-                    costs[idx] = _costMAD(img_curr[yDiamond:yDiamond+blockH, xDiamond:xDiamond+blockW], block_ref)
-                    computations += 1
-
-        point = np.argmin(costs)
-        cost = costs[point]
-
-        SDSPFlag = 1
-        if point != 4:
-            SDSPFlag = 0
-            cornerFlag = 1
-            if (np.abs(LDSP[point][0]) == np.abs(LDSP[point][1])):
-                cornerFlag = 0
-            xLast = x
-            yLast = y
-            x += LDSP[point][0]
-            y += LDSP[point][1]
-            costs[:] = 65537
-            costs[4] = cost
-    costs[:] = 65537
-    costs[2] = cost
-
-    for k in range(5):                # start SDSP
-        yDiamond = y + SDSP[k][1]
-        xDiamond = x + SDSP[k][0]
-
-        if not _checkBounded(xDiamond, yDiamond, w, h, blockW, blockH):
-            continue
-
-        if k == 2:
-            continue
-
-        costs[k] = _costMAD(img_curr[yDiamond:yDiamond+blockH, xDiamond:xDiamond+blockW], block_ref)
-        computations += 1
-
-    point = 2
-    cost = 0 
-    if costs[2] != 0:
-        point = np.argmin(costs)
-        cost = costs[point]
-    
-    x += SDSP[point][0]
-    y += SDSP[point][1]
-    
-    costs[:] = 65537
-
-    if cost > 1:
-        cost = cost / 255
-    
-    assert 0 <= cost <= 1, 'Cost is not in [0, 1]'
-    bboxCurr = np.array([x, y, x+blockW, y+blockH, score, id, cost])     # [x1, y1, x2, y2, score, id, MAD]
-
-    # return bboxCurr
-    return bboxCurr if cost < 0.15 else None
-
-def OBDS_all(img, outputs_prev, outputs_ref, denorm=True, mean=None, std=None):
+def ES_all(img, outputs_prev, outputs_ref, denorm=True, mean=None, std=None, margin=50):
     if denorm:
-        outputs = np.array([result for result in (OBDS_single((img*std + mean), (outputs_ref[bbox_prev[5]]['data']*std + mean), bbox_prev) for bbox_prev in outputs_prev) if result is not None])
+        outputs = np.array([result for result in (ES_single((img*std + mean), (outputs_ref[bbox_prev[5]]['data']*std + mean), bbox_prev, margin) for bbox_prev in outputs_prev) if result is not None])
     else:
-        outputs = np.array([result for result in (OBDS_single(img, outputs_ref[bbox_prev[5]]['data'], bbox_prev) for bbox_prev in outputs_prev) if result is not None])
+        outputs = np.array([result for result in (ES_single(img, outputs_ref[bbox_prev[5]]['data'], bbox_prev, margin) for bbox_prev in outputs_prev) if result is not None])
     return outputs if outputs.size > 0 else None
 
-def OBDS_run(policy_meta, block_size=128, denorm=True):
+def ES_run(policy_meta, block_size=128, denorm=True, margin=50):
     mean = np.array([123.675, 116.28, 103.53])
     std = np.array([58.395, 57.12, 57.375])
     img = policy_meta['inputs'].squeeze(0).permute(1, 2, 0).cpu().numpy()
@@ -292,7 +181,7 @@ def OBDS_run(policy_meta, block_size=128, denorm=True):
     t1 = time.time()
     outputs_prev = filter_det(grid, outputs_prev, block_size, value=2)
     if outputs_prev is not None:
-        outputs = OBDS_all(img, outputs_prev, outputs_ref, denorm, mean, std)
+        outputs = ES_all(img, outputs_prev, outputs_ref, denorm, mean, std, margin)
     if outputs is not None:
         outputs = filter_det(grid, outputs, block_size, value=2)
     t2 = time.time()
@@ -331,7 +220,7 @@ if __name__ == "__main__":
             for j, ref_box in enumerate(ref_box_list):
                 cv2.rectangle(img_original_copy, (ref_dict[j]['bbox'][0], ref_dict[j]['bbox'][1]), (ref_dict[j]['bbox'][2], ref_dict[j]['bbox'][3]), color=(255, 0, 0), thickness=2)
         else:
-            new_box_list = OBDS_run(policy_meta)
+            new_box_list = ES_run(policy_meta)
             if i > 1:
                 box_transfered = filter_det(grid_original, policy_meta['outputs'][0][0], block_size=128, value=0)
                 if box_transfered is not None:
