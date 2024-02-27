@@ -11,6 +11,7 @@ import numpy as np
 import cv2
 import mmcv
 import torch
+import torch.nn.functional as F
 import torch.distributed as dist
 from multiprocessing import Pool
 
@@ -24,9 +25,20 @@ from mmdet.models import build_detector
 
 from tools.cityPerson.eval_demo import validate
 
-from skimage.measure import block_reduce
-
 # python ./tools/test_city_person.py configs/elephant/cityperson/csp_r50_clip_blockcopy_030.py ./checkpoints/csp/epoch_ 72 73 --out results/test.json  --save_img --save_img_dir output/test --num-clips-warmup 400 --num-clips-eval -1
+
+def apply_pooling(data, type='avg', kernel_size=3, stride=1): 
+    data_tensor = torch.tensor(data).unsqueeze(0).permute(0, 3, 1, 2).float()
+    
+    if type == 'avg':
+        pooled_tensor = F.avg_pool2d(data_tensor, kernel_size=kernel_size, stride=stride)
+    elif type == 'max':
+        pooled_tensor = F.max_pool2d(data_tensor, kernel_size=kernel_size, stride=stride)
+    else:
+        raise(NotImplementedError)
+    
+    pooled_data = pooled_tensor.permute(0, 2, 3, 1).squeeze(0).numpy()
+    return pooled_data
 
 def _costMAD(block1, block2):
     block1 = block1.astype(np.float32)
@@ -44,14 +56,16 @@ def _checkBounded(xval, yval, w, h, blockW, blockH):
 
 def ES(img, block_ref, box_prev, margin):
     H, W = img.shape[:2]
-    blockH, blockW = block_ref.shape[:2]
     min_mad = float('inf')
     x_best = 0
     y_best = 0
     
     # Calculate the bounding box for the search area based on box_prev and margin
     x1, y1, x2, y2 = box_prev[:4].astype(np.int32)
+    blockW = x2 - x1
+    blockH = y2 - y1
     score = box_prev[4]
+    
     search_area_x1 = max(x1 - margin, 0)
     search_area_y1 = max(y1 - margin, 0)
     search_area_x2 = min(x2 + margin, W)
@@ -63,6 +77,7 @@ def ES(img, block_ref, box_prev, margin):
             # Check if the current position is within bounds considering the margin
             if _checkBounded(x, y, W, H, blockW, blockH):
                 img_block = img[y:y+blockH, x:x+blockW]
+                img_block = apply_pooling(img_block, type='avg') # avg pooling
                 mad = _costMAD(img_block, block_ref)
                 if mad < min_mad:
                     min_mad = mad
@@ -70,20 +85,29 @@ def ES(img, block_ref, box_prev, margin):
     
     # Construct the box for the best match
     box = np.array([x_best, y_best, x_best+blockW, y_best+blockH, score])
+    
+    # return box
+    if min_mad > 1:
+        min_mad = min_mad / 255
+    
+    assert 0 <= min_mad <= 1, 'mAD is not in [0, 1]'
     return box
 
 def ES_worker(args):
     x, y, img, block_ref, W, H, blockW, blockH = args
     img_block = img[y:y+blockH, x:x+blockW]
+    img_block = apply_pooling(img_block, type='avg') # avg pooling
     mad = _costMAD(img_block, block_ref)
     return x, y, mad
 
 def ES_multiprocess(img, block_ref, box_prev, margin, num_processes=None):
     H, W = img.shape[:2]
-    blockH, blockW = block_ref.shape[:2]
     
     x1, y1, x2, y2 = box_prev[:4].astype(np.int32)
+    blockW = x2 - x1
+    blockH = y2 - y1
     score = box_prev[4]
+    
     search_area_x1 = max(x1 - margin, 0)
     search_area_y1 = max(y1 - margin, 0)
     search_area_x2 = min(x2 + margin, W)
@@ -287,7 +311,7 @@ def single_gpu_test(model, data_loader, cfg, show=False, save_img=False, save_im
                 img_root = cfg.data.test['img_prefix']
                 frame = cv2.imread(osp.join(img_root, img_filename))
                 frame_copy = frame.copy()
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)      # grayscale
+                # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)      # grayscale
                 
                 if frame_id == 0:
                     frame_ref = frame
@@ -302,7 +326,9 @@ def single_gpu_test(model, data_loader, cfg, show=False, save_img=False, save_im
                     idx_del = []
                     for j, box_prev in enumerate(result_prev):
                         ref_block = frame_ref[int(result_ref[j][1]):int(result_ref[j][3]), int(result_ref[j][0]):int(result_ref[j][2])] 
-                        box_OBDS = ES_multiprocess(frame, ref_block, box_prev, margin=50, num_processes=6)
+                        ref_block = apply_pooling(ref_block, type='avg') # avg pooling
+                        box_OBDS = ES(frame, ref_block, box_prev, margin=50)
+                        # box_OBDS = ES_multiprocess(frame, ref_block, box_prev, margin=50, num_processes=6)
                         if box_OBDS is None:
                             idx_del.append(j)
                         else:
