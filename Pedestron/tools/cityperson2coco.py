@@ -73,7 +73,7 @@ def cityperson2coco(anno_data):
 
 def save_result(res_dict):
     os.makedirs(new_anntation_dir, exist_ok=True)
-    file_name = data_type + '.json'
+    file_name = data_type + '2.json'
     with open(os.path.join(new_anntation_dir, file_name), 'w') as f:
         json_str = json.dumps(res_dict)
         f.write(json_str)
