@@ -94,8 +94,8 @@ def imshow_det_bboxes(img,
     text_color_list = [color_val(color) for color in text_color]
      
     for bbox, label in zip(bboxes, labels):
-        bbox_color = bbox_color_list[0] if bbox[6] == 1 else bbox_color_list[1]
-        text_color = text_color_list[0] if bbox[6] == 1 else text_color_list[1]
+        bbox_color = bbox_color_list[0] if bbox[5] == 1 else bbox_color_list[1]
+        text_color = text_color_list[0] if bbox[5] == 1 else text_color_list[1]
         bbox_int = bbox.astype(np.int32)
         left_top = (bbox_int[0], bbox_int[1])
         right_bottom = (bbox_int[2], bbox_int[3])

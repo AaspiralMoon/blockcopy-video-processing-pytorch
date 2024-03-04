@@ -71,6 +71,59 @@ def filter_det(grid, bboxes, block_size=128, value=2):
         bboxes = bboxes[bbox_indices]
         return bboxes if bboxes.size>0 else None
 
+def filter_det_soft(grid, bboxes, block_size=128, value=2, area_threshold=0.8):
+    if bboxes.size > 0:
+        valid_bboxes = []
+
+        for bbox in bboxes:
+            # Calculate the area of the bbox
+            bbox_area = (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
+            
+            # Calculate the block indices for the bbox corners
+            top_left_block = (bbox[0] // block_size, bbox[1] // block_size)
+            bottom_right_block = (bbox[2] // block_size, bbox[3] // block_size)
+            
+            # Check if the bbox spans blocks with grid==2 and calculate intersection area
+            intersection_area = 0
+            for x in range(top_left_block[0], bottom_right_block[0] + 1):
+                for y in range(top_left_block[1], bottom_right_block[1] + 1):
+                    if grid[y, x] == value:  # Check if the block is marked as 2
+                        # Calculate intersection area for each block
+                        block_x1 = max(x * block_size, bbox[0])
+                        block_y1 = max(y * block_size, bbox[1])
+                        block_x2 = min((x + 1) * block_size, bbox[2])
+                        block_y2 = min((y + 1) * block_size, bbox[3])
+                        intersection_area += (block_x2 - block_x1) * (block_y2 - block_y1)
+            
+            # Check if intersection area is >= 80% of the bbox area
+            if intersection_area / bbox_area >= area_threshold:
+                valid_bboxes.append(bbox)
+
+        return np.array(valid_bboxes) if valid_bboxes else None
+
+def filter_det_hard(grid, bboxes, block_size=128, value=2):
+    if bboxes.size > 0:
+    
+        # Initialize an empty list to hold filtered boxes
+        filtered_boxes = []
+        
+        for bbox in bboxes:
+            # Calculate the block indices for all corners of the bbox
+            top_left_block = np.array([bbox[0] // block_size, bbox[1] // block_size])
+            bottom_right_block = np.array([bbox[2] // block_size, bbox[3] // block_size])
+            
+            # Generate all block coordinates covered by bbox
+            block_coords = np.array(np.meshgrid(
+                np.arange(top_left_block[0], bottom_right_block[0] + 1),
+                np.arange(top_left_block[1], bottom_right_block[1] + 1)
+            )).T.reshape(-1,2)
+            
+            # Check if all blocks are equal to 2
+            if all(grid[int(coord[1]), int(coord[0])] == value for coord in block_coords):
+                filtered_boxes.append(bbox)
+                
+        return np.array(filtered_boxes) if filtered_boxes else None
+
 def get_box_grid_idx(boxes, grid_width, block_size=128):
     boxes = np.atleast_2d(boxes)  # 确保 boxes 是二维的
     

@@ -14,7 +14,7 @@ import copy
 # added
 import os, sys
 sys.path.append(os.path.abspath('/home/wiser-renjie/projects/blockcopy/demo'))
-from OBDS import OBDS_run, filter_det
+from OBDS import OBDS_run, filter_det, filter_det_hard
 from ES import ES_run
 
 @DETECTORS.register_module
