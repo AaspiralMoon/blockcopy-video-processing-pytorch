@@ -51,26 +51,15 @@ class CSPBlockCopy(CSP):
         }
         torch.cuda.empty_cache()
 
+    def set_fake_dets(self, dets):
+        self.policy_meta['outputs_fake'] = dets 
+        
     def update_outputs_ref(self, out):
-        # out = [[np.array([det for det in dets if det[4] >= 0.3], dtype=out[0][0].dtype) for dets in out[0]]] # remove all the dets with <0.3 score
-        if out[0][0].size != 0:
-            img = self.policy_meta['inputs'].squeeze(0).permute(1, 2, 0).cpu().numpy()
-            img_id = self.clip_length
-            outputs_ref = self.policy_meta['outputs_ref']
-            
-            # modify self.policy_meta['outputs_ref'] in-place
-            for i, bbox in enumerate(out[0][0][:, :4].astype(np.int32)):
-                outputs_ref[self.obj_id] = {
-                                        'data': img[bbox[1]:bbox[3], bbox[0]:bbox[2]],
-                                        'bbox': bbox,
-                                        'img_id': img_id
-                                            }
-                out_list = out[0][0].tolist()
-                out_list[i] = np.append(out[0][0][i], [self.obj_id, 1]).tolist()
-                out[0][0] = np.array(out_list)
-                self.obj_id += 1
+        out = out[0][0]
+        if out.size != 0:
+            out = [[np.hstack((out, np.ones((out.shape[0], 1))))]] # add 1 to each det from CNN           
         else:
-            out = [[np.empty((0, 7), dtype=out[0][0].dtype)]]
+            out = [[np.empty((0, 6), dtype=out.dtype)]]
         return out
     
     def update_frame_state(self) -> torch.Tensor:       # added
@@ -92,10 +81,10 @@ class CSPBlockCopy(CSP):
                     # Copy block from img to frame_state
                     frame_state_updated[start_h:end_h, start_w:end_w, :] = img[start_h:end_h, start_w:end_w, :]
         
-        for box in outputs_OBDS:
-            x1, y1, x2, y2, _, obj_id, _ = box.astype(np.int32)
-            obj_data = outputs_ref[obj_id]['data'].transpose(2, 0, 1)
-            frame_state_updated[:, y1:y2, x1:x2] = obj_data           # check 0-255 or 0-1, RGB or BGR
+        # for box in outputs_OBDS:
+        #     x1, y1, x2, y2, _, obj_id, _ = box.astype(np.int32)
+        #     obj_data = outputs_ref[obj_id]['data'].transpose(2, 0, 1)
+        #     frame_state_updated[:, y1:y2, x1:x2] = obj_data           # check 0-255 or 0-1, RGB or BGR
 
         frame_state_updated = torch.from_numpy(frame_state_updated).unsqueeze(0).to(dtype=frame_state.dtype).to(device=frame_state.device)
 
@@ -103,11 +92,12 @@ class CSPBlockCopy(CSP):
     
     def handle_OBDS(self, out_CNN):
         grid_triple = self.policy_meta['grid_triple'].squeeze(0).squeeze(0).cpu().numpy()
+        outputs_fake = np.array(self.policy_meta['outputs_fake'])
         block_size = self.policy.block_size
         
-        outputs_from_OBDS = np.array([box for box in self.policy_meta['outputs'][0][0] if box[6] != 1]) # OBDS boxes in 0, next is also 0, the det is missing
+        outputs_from_OBDS = np.array([box for box in self.policy_meta['outputs'][0][0] if box[5] != 1]) # OBDS boxes in 0, next is also 0, the det is missing
         out_OBDS_transfered = filter_det(grid_triple, outputs_from_OBDS, block_size, value=0) if outputs_from_OBDS.size > 0 else None
-        out_OBDS = ES_run(self.policy_meta, block_size, denorm=True, margin=30) if self.policy_meta['outputs'][0][0].size > 0 and self.policy_meta['num_est'] != 0 else None
+        out_OBDS = filter_det(grid_triple, outputs_fake, block_size, value=2) if outputs_fake.size > 0 and self.policy_meta['num_est'] != 0 else None
         
         self.policy_meta['outputs_OBDS'] = out_OBDS
         
@@ -164,7 +154,7 @@ class CSPBlockCopy(CSP):
                 ]
                 
                 # new added              
-                # update self.policy_meta['outputs_ref'] and out_CNN (add obj_id and flag) in-place
+                # update out_CNN (add flag=1)
                 out = self.update_outputs_ref(out)
                 
                 # Do not call OBDS on the first frame 

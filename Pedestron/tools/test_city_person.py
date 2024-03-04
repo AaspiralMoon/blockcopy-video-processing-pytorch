@@ -21,6 +21,7 @@ from mmdet.datasets import build_dataloader, build_dataset
 from mmdet.models import build_detector
 
 from tools.cityPerson.eval_demo import validate
+from tools.test_gt import collect_bbox
 
 def single_gpu_test(model, data_loader, show=False, save_img=False, save_img_dir='', args=None, limit=-1):
     model.eval()
@@ -60,6 +61,12 @@ def single_gpu_test(model, data_loader, show=False, save_img=False, save_img_dir
             for frame_id in range(clip_length):
                 new_data['img'] = [data['img'][frame_id]]
                 new_data['img_meta'] = [data['img_meta'][frame_id]]
+                
+                stage = 'warmup' if limit==args.num_clips_warmup else 'eval'
+                outputs_fake = collect_bbox(stage, image_id=i*20+frame_id+1, min_height=50, min_score=0.7)
+                
+                model.module.set_fake_dets(outputs_fake)
+                
                 with torch.no_grad():
                     result = model(return_loss=False, rescale=not show, **new_data)
                     num_images += 1
