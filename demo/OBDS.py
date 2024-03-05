@@ -69,8 +69,29 @@ def filter_det(grid, bboxes, block_size=128, value=2):
         # Filter based on grid activation
         bbox_indices = valid_indices & (grid[row_indices, col_indices] == value)
         bboxes = bboxes[bbox_indices]
-        return bboxes if bboxes.size>0 else None
+        return bboxes if bboxes.size > 0 else None
 
+def filter_det_reverse(grid, bboxes, block_size=128, value=2):
+    if bboxes.size > 0: 
+        bboxes = np.atleast_2d(bboxes)
+        
+        # Calculate centers
+        centers = ((bboxes[:, 0:2] + bboxes[:, 2:4]) // 2).astype(np.int32)
+        
+        # Calculate row and column indices
+        row_indices = centers[:, 1] // block_size
+        col_indices = centers[:, 0] // block_size
+
+        # Check bounds
+        valid_rows = (row_indices >= 0) & (row_indices < grid.shape[0])
+        valid_cols = (col_indices >= 0) & (col_indices < grid.shape[1])
+        valid_indices = valid_rows & valid_cols
+
+        # Filter based on grid activation
+        bbox_indices = valid_indices & (grid[row_indices, col_indices] != value)
+        bboxes = bboxes[bbox_indices]
+        return bboxes if bboxes.size > 0 else None
+    
 def filter_det_soft(grid, bboxes, block_size=128, value=2, area_threshold=0.8):
     if bboxes.size > 0:
         valid_bboxes = []
@@ -80,8 +101,8 @@ def filter_det_soft(grid, bboxes, block_size=128, value=2, area_threshold=0.8):
             bbox_area = (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
             
             # Calculate the block indices for the bbox corners
-            top_left_block = (bbox[0] // block_size, bbox[1] // block_size)
-            bottom_right_block = (bbox[2] // block_size, bbox[3] // block_size)
+            top_left_block = (int(bbox[0] // block_size), int(bbox[1] // block_size))
+            bottom_right_block = (int(bbox[2] // block_size), int(bbox[3] // block_size))
             
             # Check if the bbox spans blocks with grid==2 and calculate intersection area
             intersection_area = 0

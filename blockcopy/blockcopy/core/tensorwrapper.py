@@ -448,10 +448,10 @@ class TensorWrapper(torch.Tensor):
             # copy data of block-sparse tensor to dense tensor based on mappings
             out = CombineFunction.apply(self.data, out, grid_idx, mapping_exec)
 
-            # added
-            if flag:
-                grid_triple = self.get_grid_triple()
-                out = self.disable_OBDS_block(out, grid_triple)
+            # # added
+            # if flag:
+            #     grid_triple = self.get_grid_triple()
+            #     out = self.disable_OBDS_block(out, grid_triple)
 
             # output is again a TensorWrapper object to record metadata
             out = out.as_subclass(TensorWrapper)

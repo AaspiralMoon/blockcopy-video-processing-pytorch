@@ -14,7 +14,7 @@ import copy
 # added
 import os, sys
 sys.path.append(os.path.abspath('/home/wiser-renjie/projects/blockcopy/demo'))
-from OBDS import OBDS_run, filter_det, filter_det_hard
+from OBDS import OBDS_run, filter_det, filter_det_hard, filter_det_soft, filter_det_reverse
 from ES import ES_run
 
 @DETECTORS.register_module
@@ -54,12 +54,17 @@ class CSPBlockCopy(CSP):
     def set_fake_dets(self, dets):
         self.policy_meta['outputs_fake'] = dets 
         
-    def update_outputs_ref(self, out):
-        out = out[0][0]
-        if out.size != 0:
+    def update_outputs_ref(self, out_CNN):
+        grid_triple = self.policy_meta['grid_triple'].squeeze(0).squeeze(0).cpu().numpy()
+        block_size = self.policy.block_size
+        
+        out = out_CNN[0][0]
+        out = filter_det_reverse(grid_triple, out, block_size, value=2)
+        
+        if out is not None:
             out = [[np.hstack((out, np.ones((out.shape[0], 1))))]] # add 1 to each det from CNN           
         else:
-            out = [[np.empty((0, 6), dtype=out.dtype)]]
+            out = [[np.empty((0, 6), dtype=out_CNN[0][0].dtype)]]
         return out
     
     def update_frame_state(self) -> torch.Tensor:       # added
@@ -97,7 +102,7 @@ class CSPBlockCopy(CSP):
         
         outputs_from_OBDS = np.array([box for box in self.policy_meta['outputs'][0][0] if box[5] != 1]) # OBDS boxes in 0, next is also 0, the det is missing
         out_OBDS_transfered = filter_det(grid_triple, outputs_from_OBDS, block_size, value=0) if outputs_from_OBDS.size > 0 else None
-        out_OBDS = filter_det(grid_triple, outputs_fake, block_size, value=2) if outputs_fake.size > 0 and self.policy_meta['num_est'] != 0 else None
+        out_OBDS = filter_det_soft(grid_triple, outputs_fake, block_size, value=2) if outputs_fake.size > 0 and self.policy_meta['num_est'] != 0 else None
         
         self.policy_meta['outputs_OBDS'] = out_OBDS
         
