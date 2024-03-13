@@ -102,7 +102,8 @@ class CSPBlockCopy(CSP):
         
         outputs_from_OBDS = np.array([box for box in self.policy_meta['outputs'][0][0] if box[5] != 1]) # OBDS boxes in 0, next is also 0, the det is missing
         out_OBDS_transfered = filter_det(grid_triple, outputs_from_OBDS, block_size, value=0) if outputs_from_OBDS.size > 0 else None
-        out_OBDS = filter_det_soft(grid_triple, outputs_fake, block_size, value=2) if outputs_fake.size > 0 and self.policy_meta['num_est'] != 0 else None
+        # out_OBDS = filter_det_soft(grid_triple, outputs_fake, block_size, value=2, area_threshold=0.6) if outputs_fake.size > 0 and self.policy_meta['num_est'] != 0 else None
+        out_OBDS = filter_det(grid_triple, outputs_fake, block_size, value=2) if outputs_fake.size > 0 and self.policy_meta['num_est'] != 0 else None
         
         self.policy_meta['outputs_OBDS'] = out_OBDS
         

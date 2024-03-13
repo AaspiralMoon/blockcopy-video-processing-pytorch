@@ -106,11 +106,11 @@ class PolicyNet(nn.Module):
                 input_features.append(outputs.type(input_features[0].dtype) - 0.5) # normalize to [-0.5, 0.5]
 
             if self.use_prev_grid:
-                assert policy_meta.get("grid", None) is not None
-                grid_prev = policy_meta["grid"].type(input_features[0].dtype)
+                assert policy_meta.get("grid_triple", None) is not None                              # change grid 0,1 to grid 0,1,2
+                grid_prev = policy_meta["grid_triple"].type(input_features[0].dtype)
                 assert grid_prev.dim() == 4
                 grid_prev = F.interpolate(grid_prev, size=input_features[0].shape[2:], mode="nearest")
-                input_features.append(grid_prev - 0.5) # normalize to [-0.5, 0.5]
+                input_features.append(grid_prev - 1) # normalize to [-1, 1]
 
             x = torch.cat(input_features, dim=1).detach()
 

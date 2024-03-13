@@ -425,21 +425,20 @@ class PolicyTrainRL(Policy, metaclass=abc.ABCMeta):
         if policy_meta["outputs_prev"] is not None and train:
             with torch.enable_grad():
 
-                ig = self._get_information_gain(policy_meta)
+                ig, grid_ig = self._get_information_gain(policy_meta)
                 policy_meta["information_gain"] = ig
                 reward_complexity_weighted = self._get_reward_complexity(policy_meta) * self.complexity_weight_gamma
                 grid_triple_resized = F.interpolate(grid_triple.float(), size=ig.shape[2:], mode='nearest')
                 reward_complexity_weighted_tensor = torch.tensor(reward_complexity_weighted, device=grid_triple_resized.device)
                 modified_reward_complexity_weighted = torch.where(grid_triple_resized == 2, 
-                                                                  torch.where(reward_complexity_weighted_tensor < 0, 0.5 * reward_complexity_weighted_tensor, 2 * reward_complexity_weighted_tensor), 
+                                                                  torch.where(reward_complexity_weighted_tensor < 0, 0.8 * reward_complexity_weighted_tensor, 1.2 * reward_complexity_weighted_tensor), 
                                                                   reward_complexity_weighted_tensor)
                 reward = ig + modified_reward_complexity_weighted
                 assert reward.dim() == 4
                 assert not torch.any(torch.isnan(reward))
                 log_probs = policy_meta["grid_log_probs"]
                 reward = F.adaptive_max_pool2d(reward, output_size=log_probs.shape[2:])
-                # reward[~grid] = -reward[~grid]                                                     # change to 0,1,2 version
-                reward[grid_triple==0] = -reward[grid_triple==0] 
+                reward[grid_triple!=grid_ig] = -reward[grid_triple!=grid_ig] 
                 loss = -log_probs * reward.detach()
                 loss_policy = loss.mean()
                 assert not torch.isnan(loss_policy)
