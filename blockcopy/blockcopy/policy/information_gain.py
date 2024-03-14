@@ -7,37 +7,37 @@ import torch.nn.functional as F
 
 import numpy as np
 
-# class InformationGain(nn.Module, metaclass=abc.ABCMeta):
-#     def __init__(self, num_classes):
-#         super().__init__()
-#         self.num_classes = num_classes
+class InformationGain(nn.Module, metaclass=abc.ABCMeta):
+    def __init__(self, num_classes):
+        super().__init__()
+        self.num_classes = num_classes
 
-#     def get_output_repr(self, policy_meta: Dict) -> torch.Tensor:
-#         raise NotImplementedError
+    def get_output_repr(self, policy_meta: Dict) -> torch.Tensor:
+        raise NotImplementedError
 
-#     def forward(self, policy_meta: Dict) -> torch.Tensor:
-#         raise NotImplementedError
+    def forward(self, policy_meta: Dict) -> torch.Tensor:
+        raise NotImplementedError
         
         
-# class InformationGainSemSeg(InformationGain):
-#     def __init__(self, num_classes):
-#         super().__init__(num_classes)
-#         self.scale_factor = 1/4
+class InformationGainSemSeg(InformationGain):
+    def __init__(self, num_classes):
+        super().__init__(num_classes)
+        self.scale_factor = 1/4
 
-#     def get_output_repr(self, policy_meta: Dict) -> torch.Tensor:
-#         out = policy_meta['outputs']
-#         assert out.size(1) == self.num_classes
-#         return out
+    def get_output_repr(self, policy_meta: Dict) -> torch.Tensor:
+        out = policy_meta['outputs']
+        assert out.size(1) == self.num_classes
+        return out
         
-#     def forward(self, policy_meta: Dict) -> torch.Tensor:
-#         assert policy_meta['outputs'] is not None
-#         assert policy_meta['outputs_prev'] is not None
+    def forward(self, policy_meta: Dict) -> torch.Tensor:
+        assert policy_meta['outputs'] is not None
+        assert policy_meta['outputs_prev'] is not None
 
-#         outputs = F.interpolate(policy_meta['outputs'], scale_factor=self.scale_factor, mode='bilinear')
-#         outputs_prev = F.interpolate(policy_meta['outputs_prev'], scale_factor=self.scale_factor, mode='bilinear')
-#         ig = F.kl_div(input=F.log_softmax(outputs, dim=1), 
-#                       target=F.log_softmax(outputs_prev, dim=1), 
-#                       reduce=False, reduction='mean', log_target=True).mean(1, keepdim=True)
+        outputs = F.interpolate(policy_meta['outputs'], scale_factor=self.scale_factor, mode='bilinear')
+        outputs_prev = F.interpolate(policy_meta['outputs_prev'], scale_factor=self.scale_factor, mode='bilinear')
+        ig = F.kl_div(input=F.log_softmax(outputs, dim=1), 
+                      target=F.log_softmax(outputs_prev, dim=1), 
+                      reduce=False, reduction='mean', log_target=True).mean(1, keepdim=True)
 #         return ig
 
 class InformationGainObjectDetection(InformationGain):
@@ -55,17 +55,17 @@ class InformationGainObjectDetection(InformationGain):
         block_size = H // H_G
         return build_instance_mask_iou_gain(policy_meta['outputs'], policy_meta['outputs_prev'], (N, self.num_classes, H, W), (H_G, W_G), block_size, device=policy_meta['inputs'].device)
 
-# def build_instance_mask(bbox_results: List[List[np.ndarray]], size: tuple, device='cpu') -> torch.Tensor:      # output of the policy input
-#     mask = torch.zeros(size, device=device)
-#     num_classes = size[1]
-#     for c in range(num_classes):
-#         bbox_scores = torch.from_numpy(bbox_results[0][c][:,4]).to(device)
-#         bbox_results = (bbox_results[0][c][:,:4]).astype(np.int32)
+def build_instance_mask(bbox_results: List[List[np.ndarray]], size: tuple, device='cpu') -> torch.Tensor:      # output of the policy input
+    mask = torch.zeros(size, device=device)
+    num_classes = size[1]
+    for c in range(num_classes):
+        bbox_scores = torch.from_numpy(bbox_results[0][c][:,4]).to(device)
+        bbox_results = (bbox_results[0][c][:,:4]).astype(np.int32)
         
-#         for bbox, score in zip(bbox_results, bbox_scores):
-#             x1, y1, x2, y2 = bbox
-#             mask[0,c,y1:y2, x1:x2] = torch.max(mask[0,0, y1:y2, x1:x2], score)
-#     return mask
+        for bbox, score in zip(bbox_results, bbox_scores):
+            x1, y1, x2, y2 = bbox
+            mask[0,c,y1:y2, x1:x2] = torch.max(mask[0,0, y1:y2, x1:x2], score)
+    return mask
 
 def build_instance_mask_iou_gain(bbox_results, bbox_results_prev, size, grid_size, block_size, device='cpu', SUBSAMPLE=2) -> torch.Tensor:     
     assert len(bbox_results) == 1, "only supports batch size 1"  
@@ -80,7 +80,7 @@ def build_instance_mask_iou_gain(bbox_results, bbox_results_prev, size, grid_siz
         bbox_results_original = bbox_results[0][c][:, :4]
         bbox_results_prev_original = bbox_results_prev[0][c][:, :4]
 
-        box_grid_indices = get_box_grid_indices(grid_size, block_size, bbox_results, bbox_results_prev)
+        box_grid_indices = get_box_grid_indices(grid_size, block_size, bbox_results_original, bbox_results_prev_original)
         
         bbox_results = (bbox_results_original / SUBSAMPLE).astype(np.int32)
         bbox_results_prev = (bbox_results_prev_original / SUBSAMPLE).astype(np.int32)
@@ -111,7 +111,7 @@ def build_instance_mask_iou_gain(bbox_results, bbox_results_prev, size, grid_siz
                 y2_grid = (max(y2_c, y2_p) - 1) // block_size
                 
                 if is_isolated(box_grid_indices, grid_size, block_size, bbox_results_original.shape[0], 
-                                box_curr=bbox_results_original[i], idx_curr=i, box_prev=bbox_results_prev_original[best_j], idx_prev=best_j):  # new
+                                box_curr=bbox_results_original[i:i+1, :], idx_curr=i, box_prev=bbox_results_prev_original[best_j:best_j+1, :], idx_prev=best_j):  # new
                     if y2_c - y1_c >= 200 and score >= 0.7:
                         grid_ig[:, :, y1_grid:y2_grid+1, x1_grid:x2_grid+1] = 2
                 else:
@@ -127,7 +127,7 @@ def build_instance_mask_iou_gain(bbox_results, bbox_results_prev, size, grid_siz
                 y2_grid = (y2_c - 1)// block_size
                 
                 if is_isolated(box_grid_indices, grid_size, block_size, bbox_results_original.shape[0], 
-                                box_curr=bbox_results_original[i], idx_curr=i, box_prev=None, idx_prev=None):  # new
+                                box_curr=bbox_results_original[i:i+1, :], idx_curr=i, box_prev=None, idx_prev=None):  # new
                     if y2_c - y1_c >= 200 and score >= 0.7:
                         grid_ig[:, :, y1_grid:y2_grid+1, x1_grid:x2_grid+1] = 2
                 else:
@@ -139,7 +139,7 @@ def build_instance_mask_iou_gain(bbox_results, bbox_results_prev, size, grid_siz
                 score = bbox_scores_prev[j]
                 mask[0, 0, y1:y2, x1:x2] = torch.max(mask[0, 0, y1:y2, x1:x2], score)
                 
-                x1_p, y1_p, x2_p, y2_p = bbox_results_prev_original[best_j].astype(np.int32) # new, p=prev
+                x1_p, y1_p, x2_p, y2_p = bbox_results_prev_original[j].astype(np.int32) # new, p=prev
                 
                 x1_grid = x1_p // block_size
                 y1_grid = y1_p // block_size
@@ -244,11 +244,15 @@ def is_isolated(box_grid_indices, grid_size, block_size, len_curr, box_curr=None
     else:
         raise(NotImplementedError)
     
-    remaining_box_grid_indices = np.unique(np.concatenate(np.delete(box_grid_indices, idx_to_exclude, axis=0)))
+    remaining_box_grid_indices = np.delete(box_grid_indices, idx_to_exclude, axis=0)
+    if remaining_box_grid_indices.size > 0:
+        remaining_box_grid_indices = np.unique(np.concatenate(remaining_box_grid_indices))
+        is_any_in_remaining = np.any(np.isin(np.unique(np.concatenate(get_box_grid_indices(grid_size, block_size, box_curr, box_prev))), remaining_box_grid_indices))
+        return not is_any_in_remaining
+    else:
+        return True
     
-    is_any_in_remaining = np.any(np.isin(np.unique(get_box_grid_indices(grid_size, block_size, box_curr, box_prev)), remaining_box_grid_indices))
-    
-    return not is_any_in_remaining
+
 
 
 # def activate_grid(boxes_curr, boxes_prev, grid_ig, block_size):

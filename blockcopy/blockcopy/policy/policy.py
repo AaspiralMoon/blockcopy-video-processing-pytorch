@@ -402,9 +402,9 @@ class PolicyTrainRL(Policy, metaclass=abc.ABCMeta):
 
     def _get_information_gain(self, policy_meta: dict) -> torch.Tensor:
         with timings.env("policy/information_gain", 3):
-            ig = self.information_gain(policy_meta)
+            ig, grid_ig = self.information_gain(policy_meta)
             assert ig.dim() == 4
-            return ig
+            return ig, grid_ig
 
     def _get_reward_complexity(self, policy_meta: dict) -> float:
         reward_sparsity = -float(self.running_cost - self.block_target)
@@ -433,12 +433,14 @@ class PolicyTrainRL(Policy, metaclass=abc.ABCMeta):
                 modified_reward_complexity_weighted = torch.where(grid_triple_resized == 2, 
                                                                   torch.where(reward_complexity_weighted_tensor < 0, 0.8 * reward_complexity_weighted_tensor, 1.2 * reward_complexity_weighted_tensor), 
                                                                   reward_complexity_weighted_tensor)
+                
+                log_probs = policy_meta["grid_log_probs"]
+                ig = F.adaptive_max_pool2d(ig, output_size=log_probs.shape[2:]) 
+                modified_reward_complexity_weighted = F.adaptive_max_pool2d(modified_reward_complexity_weighted, output_size=log_probs.shape[2:])
+                ig[grid_triple!=grid_ig] = -ig[grid_triple!=grid_ig]
                 reward = ig + modified_reward_complexity_weighted
                 assert reward.dim() == 4
                 assert not torch.any(torch.isnan(reward))
-                log_probs = policy_meta["grid_log_probs"]
-                reward = F.adaptive_max_pool2d(reward, output_size=log_probs.shape[2:])
-                reward[grid_triple!=grid_ig] = -reward[grid_triple!=grid_ig] 
                 loss = -log_probs * reward.detach()
                 loss_policy = loss.mean()
                 assert not torch.isnan(loss_policy)
