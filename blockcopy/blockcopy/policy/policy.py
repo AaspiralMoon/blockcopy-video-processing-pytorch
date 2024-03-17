@@ -427,6 +427,7 @@ class PolicyTrainRL(Policy, metaclass=abc.ABCMeta):
 
                 ig, grid_ig = self._get_information_gain(policy_meta)
                 policy_meta["information_gain"] = ig
+                policy_meta["grid_ig"] = grid_ig
                 reward_complexity_weighted = self._get_reward_complexity(policy_meta) * self.complexity_weight_gamma
                 grid_triple_resized = F.interpolate(grid_triple.float(), size=ig.shape[2:], mode='nearest')
                 reward_complexity_weighted_tensor = torch.tensor(reward_complexity_weighted, device=grid_triple_resized.device)
@@ -437,7 +438,9 @@ class PolicyTrainRL(Policy, metaclass=abc.ABCMeta):
                 log_probs = policy_meta["grid_log_probs"]
                 ig = F.adaptive_max_pool2d(ig, output_size=log_probs.shape[2:]) 
                 modified_reward_complexity_weighted = F.adaptive_max_pool2d(modified_reward_complexity_weighted, output_size=log_probs.shape[2:])
+                modified_reward_complexity_weighted[grid_triple==0] = -modified_reward_complexity_weighted[grid_triple==0]
                 ig[grid_triple!=grid_ig] = -ig[grid_triple!=grid_ig]
+                policy_meta["ig_updated"] = ig
                 reward = ig + modified_reward_complexity_weighted
                 assert reward.dim() == 4
                 assert not torch.any(torch.isnan(reward))

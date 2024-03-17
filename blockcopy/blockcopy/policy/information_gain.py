@@ -112,8 +112,10 @@ def build_instance_mask_iou_gain(bbox_results, bbox_results_prev, size, grid_siz
                 
                 if is_isolated(box_grid_indices, grid_size, block_size, bbox_results_original.shape[0], 
                                 box_curr=bbox_results_original[i:i+1, :], idx_curr=i, box_prev=bbox_results_prev_original[best_j:best_j+1, :], idx_prev=best_j):  # new
-                    if y2_c - y1_c >= 200 and score >= 0.7:
+                    if y2_c - y1_c >= 100 and score >= 0.7:
                         grid_ig[:, :, y1_grid:y2_grid+1, x1_grid:x2_grid+1] = 2
+                    else:
+                        grid_ig[:, :, y1_grid:y2_grid+1, x1_grid:x2_grid+1] = 1
                 else:
                     grid_ig[:, :, y1_grid:y2_grid+1, x1_grid:x2_grid+1] = 1
                 
@@ -128,8 +130,10 @@ def build_instance_mask_iou_gain(bbox_results, bbox_results_prev, size, grid_siz
                 
                 if is_isolated(box_grid_indices, grid_size, block_size, bbox_results_original.shape[0], 
                                 box_curr=bbox_results_original[i:i+1, :], idx_curr=i, box_prev=None, idx_prev=None):  # new
-                    if y2_c - y1_c >= 200 and score >= 0.7:
+                    if y2_c - y1_c >= 100 and score >= 0.7:
                         grid_ig[:, :, y1_grid:y2_grid+1, x1_grid:x2_grid+1] = 2
+                    else:
+                        grid_ig[:, :, y1_grid:y2_grid+1, x1_grid:x2_grid+1] = 1
                 else:
                     grid_ig[:, :, y1_grid:y2_grid+1, x1_grid:x2_grid+1] = 1
             
