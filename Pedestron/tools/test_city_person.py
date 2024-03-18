@@ -22,8 +22,6 @@ from mmdet.models import build_detector
 
 from tools.cityPerson.eval_demo import validate
 
-# python ./tools/test_city_person.py configs/elephant/cityperson/csp_r50_clip_blockcopy_030.py ./checkpoints/csp/epoch_ 72 73 --out results/test.json  --save_img --save_img_dir output/test --num-clips-warmup 400 --num-clips-eval -1
-
 def single_gpu_test(model, data_loader, show=False, save_img=False, save_img_dir='', args=None, limit=-1):
     model.eval()
     static = not hasattr(model.module, 'is_blockcopy_manager')
@@ -49,6 +47,7 @@ def single_gpu_test(model, data_loader, show=False, save_img=False, save_img_dir
                 result = model(return_loss=False, rescale=not show, **data)
                 num_images += 1
             results.append(result)
+
         else:
             # remove tmeporal information for new clip
             if not static:
@@ -61,9 +60,10 @@ def single_gpu_test(model, data_loader, show=False, save_img=False, save_img_dir
             for frame_id in range(clip_length):
                 new_data['img'] = [data['img'][frame_id]]
                 new_data['img_meta'] = [data['img_meta'][frame_id]]
+                
+                print(new_data)
                 with torch.no_grad():
                     result = model(return_loss=False, rescale=not show, **new_data)
-
                     num_images += 1
 
                 # VISUALIZATIONS
@@ -72,19 +72,20 @@ def single_gpu_test(model, data_loader, show=False, save_img=False, save_img_dir
                     out_file = save_img_dir + '/' + str(num_images)+'_result.jpg'
                     if save_img:
                         print(f"Saving output result to {out_file}")
+                        
                     model.module.show_result(new_data, result, dataset.img_norm_cfg, show_result=show, save_result=save_img, result_name=out_file)
                     
-
                     if hasattr(model.module, 'policy_meta'):
                         policy_meta = model.module.policy_meta
                         rescale_func = lambda x: cv2.resize(x, dsize=(1024, 512), interpolation=cv2.INTER_NEAREST)
                         frame = new_data['img'][0][0].permute(1,2,0).mul_(torch.tensor(dataset.img_norm_cfg.std)).add_(torch.tensor(dataset.img_norm_cfg.mean))
-                        frame = frame.float().numpy()/255
+                        frame = frame.float().numpy()
                         frame = rescale_func(frame)
                         frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
                         frame_file = save_img_dir + '/' + str(num_images)+'_frame.jpg'
                         print(f"Saving grid result to {frame_file}")
-                        assert cv2.imwrite(frame_file, frame*255)
+                        assert cv2.imwrite(frame_file, frame)
+                        
                         # plot frame state
                         frame_state = policy_meta['frame_state']
                         if frame_state is not None:
@@ -94,20 +95,27 @@ def single_gpu_test(model, data_loader, show=False, save_img=False, save_img_dir
                             frame_state_file = save_img_dir + '/' + str(num_images)+'_frame_state.jpg'
                             print(f"Saving grid result to {frame_state_file}")
                             assert cv2.imwrite(frame_state_file, frame_state)
-
+                            
                         # plot grid
                         import cmapy
                         import matplotlib.pyplot as plt
-                        grid = policy_meta['grid']
+                        grid = policy_meta['grid_triple']
                         grid_file = save_img_dir + '/' + str(num_images)+'_grid.jpg'
-                        t = rescale_func(grid[0,0].float().cpu().numpy())
-                        t = cv2.cvtColor(t*255, cv2.COLOR_GRAY2BGR).astype(np.uint8)
-                        t = cv2.applyColorMap(t, cmapy.cmap('viridis')).astype(np.float32)/255
-                        # t = cv2.cvtColor(t, cv2.COLOR_BGR2RGB)
-                        t = cv2.addWeighted(frame,0.8,t,0.2,0)
+                        grid_rescaled = rescale_func(grid[0,0].float().cpu().numpy())
+                        color_map = {
+                            # 0: [153, 255, 255],
+                            1: [184, 185, 230],
+                            2: [241, 217, 198]
+                        }
+                        grid_colored = np.zeros((grid_rescaled.shape[0], grid_rescaled.shape[1], 3), dtype=np.uint8)
+                        for value, color in color_map.items():
+                            grid_colored[grid_rescaled == value] = color
+                        if frame.dtype != grid_colored.dtype:
+                            frame = frame.astype(grid_colored.dtype)
+                        grid_colored = cv2.addWeighted(frame, 0.5, grid_colored, 0.5, 0)
                         print(f"Saving grid result to {grid_file}")
-                        assert cv2.imwrite(grid_file, t*255)
-
+                        assert cv2.imwrite(grid_file, grid_colored)
+                      
                         # plot outut_repr
                         if 'output_repr' in policy_meta:
                             output_repr = policy_meta['output_repr'][0]
@@ -120,7 +128,7 @@ def single_gpu_test(model, data_loader, show=False, save_img=False, save_img_dir
                                 t = t.astype(np.uint8)
                                 assert cv2.imwrite(output_repr_path, t)
                             
-                        # plot outut_repr
+                        # plot information gain
                         if 'information_gain' in policy_meta:
                             ig = policy_meta['information_gain'][0]
                             t = rescale_func(ig[0].cpu().numpy())
@@ -130,20 +138,60 @@ def single_gpu_test(model, data_loader, show=False, save_img=False, save_img_dir
                                     t *= 255/t.max()
                             t = t.astype(np.uint8)
                             assert cv2.imwrite(ig_path, t)
+                            
+                            # plot grid_ig
+                            if 'grid_ig' in policy_meta:
+                                grid_ig = policy_meta['grid_ig']
+                                grid_ig_file = save_img_dir + '/' + str(num_images)+'_grid_ig.jpg'
+                                grid_ig_scaled = rescale_func(grid_ig[0,0].float().cpu().numpy())
+                                color_map = {
+                                    # 0: [153, 255, 255],
+                                    1: [184, 185, 230],
+                                    2: [241, 217, 198]
+                                }
+                                grid_ig_colored = np.zeros((grid_ig_scaled.shape[0], grid_ig_scaled.shape[1], 3), dtype=np.uint8)
+                                for value, color in color_map.items():
+                                    grid_ig_colored[grid_ig_scaled == value] = color
+                                if frame.dtype != grid_ig_colored.dtype:
+                                    frame = frame.astype(grid_ig_colored.dtype)
+                                grid_ig_colored = cv2.addWeighted(frame, 0.5, grid_ig_colored, 0.5, 0)
+                                print(f"Saving grid result to {grid_ig_file}")
+                                assert cv2.imwrite(grid_ig_file, grid_ig_colored)
+                                
+                            if 'ig_updated' in policy_meta:
+                                ig_updated = policy_meta['ig_updated']
+                                ig_updated_file = save_img_dir + '/' + str(num_images)+'_ig_updated.jpg'
+                                ig_updated_scaled = rescale_func(ig_updated[0,0].float().cpu().numpy())
+                                color_map = {
+                                    # 0: [153, 255, 255],
+                                    1: [184, 185, 230],
+                                    2: [241, 217, 198]
+                                }
+                                ig_updated_colored = np.zeros((ig_updated_scaled.shape[0], ig_updated_scaled.shape[1], 3), dtype=np.uint8)
+                                
+                                ig_updated_colored[ig_updated_scaled == 0] = [0, 0, 0]
+                                ig_updated_colored[ig_updated_scaled > 0] = [184, 185, 230]
+                                ig_updated_colored[ig_updated_scaled < 0] = [241, 217, 198]
+                                
+                                if frame.dtype != ig_updated_colored.dtype:
+                                    frame = frame.astype(ig_updated_colored.dtype)
+                                ig_updated_colored = cv2.addWeighted(frame, 0.5, ig_updated_colored, 0.5, 0)
+                                print(f"Saving grid result to {grid_ig_file}")
+                                assert cv2.imwrite(ig_updated_file, ig_updated_colored)
                         
                         num_total = policy_meta['num_total'] if 'num_total' in policy_meta else num_total
                         if limit == args.num_clips_eval:
                             if 'num_exec' in policy_meta and policy_meta['num_exec'] != num_total:
                                 num_exec_list.append(policy_meta['num_exec'])
                             if 'num_est' in policy_meta and policy_meta['num_exec'] != num_total:
-                                num_est_list.append(policy_meta['num_est'])        
-                                 
+                                num_est_list.append(policy_meta['num_est'])
+                        
             results.append(result)
-            
+
         batch_size = data['img'][0].size(0)
         for _ in range(batch_size):
             prog_bar.update()
-            
+    
     num_exec_list = np.array([0]) if not num_exec_list else num_exec_list
     num_est_list = np.zeros_like(num_exec_list) if not num_est_list else num_est_list
     return results, num_images, np.array(num_exec_list), np.array(num_est_list), num_total
@@ -325,8 +373,8 @@ def main():
         if not distributed:
             model = MMDataParallel(model, device_ids=[0])
             print('# ----------- warmup ---------- #')
-            _, _, _, _, _ = single_gpu_test(model, data_loader_warmup, False, False, '', args, limit=args.num_clips_warmup)
-            # _, _, _, _, _ = single_gpu_test(model, data_loader_warmup, args.show, args.save_img, args.save_img_dir, args, limit=args.num_clips_warmup)
+            # _, _, _, _, _ = single_gpu_test(model, data_loader_warmup, False, False, '', args, limit=args.num_clips_warmup)
+            _, _, _, _, _= single_gpu_test(model, data_loader_warmup, args.show, args.save_img, args.save_img_dir, args, limit=args.num_clips_warmup)
             
             # sys.exit()
             print('# -----------  eval  ---------- #')
@@ -393,7 +441,5 @@ def main():
         with open(args.out.replace('.json', '.txt'), 'w') as f:
             f.write(summary)
         print(summary)
-
-
 if __name__ == '__main__':
     main()
