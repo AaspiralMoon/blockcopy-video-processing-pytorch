@@ -29,7 +29,7 @@ def encode_video(input_pattern, output_video, frame_rate, temp_folder):
     
 if __name__ == '__main__':
     input_root = '/home/wiser-renjie/projects/blockcopy/Pedestron/output/'
-    exp_id = 'csp_r50_clip_pure_ES'
+    exp_id = 'csp_blockcopy_030_wildtrack_c1_c7'
     input_folder = os.path.join(input_root, exp_id)
     output_root = os.path.join(input_root, (exp_id + '_videos'))
     temp_folder = os.path.join(input_root, 'temp')
@@ -44,10 +44,10 @@ if __name__ == '__main__':
     num_batches = num_frames // batch_size
         
     image_types = {
-        # 'frame': 'jpg',
-        # 'frame_state': 'jpg',
-        # 'grid': 'jpg',
-        # 'output_repr_c0': 'jpg',
+        'frame': 'jpg',
+        'frame_state': 'jpg',
+        'grid': 'jpg',
+        'output_repr_c0': 'jpg',
         'result': 'jpg'
     }
     
