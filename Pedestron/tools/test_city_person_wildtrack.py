@@ -177,13 +177,16 @@ def single_gpu_test(model, data_loader, dataset, show=False, save_img=False, sav
                             t *= 255/t.max()
                     t = t.astype(np.uint8)
                     assert cv2.imwrite(ig_path, t)
-
-        if 'num_exec' in policy_meta and i != 0:
+        
+        if not static and 'num_exec' in policy_meta and i != 0:
             num_exec = policy_meta['num_exec']
             num_exec_list.append(num_exec)
         results.append(result)
 
-    return results, num_images, num_blocks, np.array(num_exec_list)
+    if not static:
+        return results, num_images, num_blocks, np.array(num_exec_list)
+    else:
+        return results, num_images, 1, np.array([0])
 
 def parse_args():
     parser = argparse.ArgumentParser(description='MMDet test detector')
@@ -286,7 +289,7 @@ def main():
             model = MMDataParallel(model, device_ids=[0])
             print('# ----------- warmup ---------- #')
             # _, _, _ = single_gpu_test(model, data_loader_warmup, False, False, '', args, limit=args.num_clips_warmup)
-            _, _, _, _ = single_gpu_test(model, data_loader_warmup, dataset, args.show, args.save_img, args.save_img_dir, args, limit=args.num_clips_warmup)
+            # _, _, _, _ = single_gpu_test(model, data_loader_warmup, dataset, args.show, args.save_img, args.save_img_dir, args, limit=args.num_clips_warmup)
             
             # sys.exit()
             print('# -----------  eval  ---------- #')

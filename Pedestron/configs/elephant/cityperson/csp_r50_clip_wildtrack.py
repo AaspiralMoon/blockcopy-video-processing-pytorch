@@ -1,20 +1,7 @@
 # model settings
 CLIP_LENGTH = 20
 model = dict(
-    type='CSPBlockCopy',
-    blockcopy_settings=dict(
-        block_policy='rl_objectdetection',
-        block_num_classes=1,
-        block_optim_lr=0.0001,
-        block_optim_wd=0.0001,
-        block_optim_momentum=0,
-        block_target=0.3,
-        block_complexity_weight=5,
-        block_size=128,
-        block_train_interval=4,
-        block_cost_momentum=0.9,
-        block_policy_verbose=True,
-    ),
+    type='CSP',
     pretrained='modelzoo://resnet50',
     backbone=dict(
         type='ResNet',
@@ -74,6 +61,7 @@ data_root = 'datasets/CityPersons'
 img_root = '/home/wiser-renjie/remote_datasets/cityscapes/leftImg8bit_sequence'
 data_root_vid = ''
 INF = 1e8
+
 cudnn_benchmark = True
 
 img_norm_cfg = dict(
@@ -169,4 +157,4 @@ load_from = None
 resume_from = None
 # resume_from = '/home/ljp/code/mmdetection/work_dirs/csp4_mstrain_640_800_x101_64x4d_fpn_gn_2x/epoch_10.pth'
 workflow = [('train', 1)]
-fp16 = None
+fp16 = True
