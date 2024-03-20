@@ -288,7 +288,7 @@ def main():
         if not distributed:
             model = MMDataParallel(model, device_ids=[0])
             print('# ----------- warmup ---------- #')
-            # _, _, _ = single_gpu_test(model, data_loader_warmup, False, False, '', args, limit=args.num_clips_warmup)
+            # _, _, _, _ = single_gpu_test(model, data_loader_warmup, False, False, '', args, limit=args.num_clips_warmup)
             # _, _, _, _ = single_gpu_test(model, data_loader_warmup, dataset, args.show, args.save_img, args.save_img_dir, args, limit=args.num_clips_warmup)
             
             # sys.exit()
@@ -307,8 +307,8 @@ def main():
             
             torch.cuda.synchronize()
             start = time.perf_counter()
-            outputs, num_images, num_blocks, num_exec_list = single_gpu_test(model, data_loader, dataset, args.show, args.save_img, args.save_img_dir, args, limit=args.num_clips_eval)
-           
+            # outputs, num_images, num_blocks, num_exec_list = single_gpu_test(model, data_loader, dataset, args.show, args.save_img, args.save_img_dir, args, limit=args.num_clips_eval)
+            outputs, num_images, num_blocks, num_exec_list = single_gpu_test(model, data_loader_warmup, dataset, args.show, args.save_img, args.save_img_dir, args, limit=args.num_clips_warmup)
             torch.cuda.synchronize()
             stop = time.perf_counter()
             if count_flops:

@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-num_exec_list = np.loadtxt('/home/wiser-renjie/projects/blockcopy/Pedestron/results/csp_blockcopy_070_wildtrack_c1_c7_num_exec_list.txt')
+num_exec_list = np.loadtxt('/home/wiser-renjie/projects/blockcopy/Pedestron/results/csp_blockcopy_030_wildtrack_c1_c7_num_exec_list.txt')
 
 # Step 2: Create histogram
 plt.figure(figsize=(10, 5))  # Set the figure size (optional)
