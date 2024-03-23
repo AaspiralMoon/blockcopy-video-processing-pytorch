@@ -125,19 +125,18 @@ def single_gpu_test(model, data_loader, dataset, show=False, save_img=False, sav
             out_file = save_img_dir + '/' + str(num_images)+'_result.jpg'
             if save_img:
                 print(f"Saving output result to {out_file}")
-            model.module.show_result_wildtrack(new_data, result, dataset.img_norm_cfg, show_result=show, save_result=save_img, result_name=out_file)
-            
+            model.module.show_result_wildtrack(new_data, [result[0][:, :5]], dataset.img_norm_cfg, show_result=show, save_result=save_img, result_name=out_file)
 
             if hasattr(model.module, 'policy_meta'):
                 policy_meta = model.module.policy_meta
                 rescale_func = lambda x: cv2.resize(x, dsize=(1024, 512), interpolation=cv2.INTER_NEAREST)
                 frame = new_data['img'][0][0].cpu().permute(1,2,0).mul_(torch.tensor(dataset.img_norm_cfg.std)).add_(torch.tensor(dataset.img_norm_cfg.mean))
-                frame = frame.float().numpy()/255
+                frame = frame.float().numpy()
                 frame = rescale_func(frame)
                 frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
                 frame_file = save_img_dir + '/' + str(num_images)+'_frame.jpg'
                 print(f"Saving grid result to {frame_file}")
-                assert cv2.imwrite(frame_file, frame*255)
+                assert cv2.imwrite(frame_file, frame)
                 # plot frame state
                 frame_state = policy_meta['frame_state']
                 if frame_state is not None:
@@ -147,21 +146,28 @@ def single_gpu_test(model, data_loader, dataset, show=False, save_img=False, sav
                     frame_state_file = save_img_dir + '/' + str(num_images)+'_frame_state.jpg'
                     print(f"Saving grid result to {frame_state_file}")
                     assert cv2.imwrite(frame_state_file, frame_state)
-
+                
                 # plot grid
                 import cmapy
                 import matplotlib.pyplot as plt
-                grid = policy_meta['grid']
+                grid = policy_meta['grid_triple']
                 num_blocks = grid.shape[2] * grid.shape[3]
                 grid_file = save_img_dir + '/' + str(num_images)+'_grid.jpg'
-                t = rescale_func(grid[0,0].float().cpu().numpy())
-                t = cv2.cvtColor(t*255, cv2.COLOR_GRAY2BGR).astype(np.uint8)
-                t = cv2.applyColorMap(t, cmapy.cmap('viridis')).astype(np.float32)/255
-                # t = cv2.cvtColor(t, cv2.COLOR_BGR2RGB)
-                t = cv2.addWeighted(frame,0.8,t,0.2,0)
+                grid_rescaled = rescale_func(grid[0,0].float().cpu().numpy())
+                color_map = {
+                    # 0: [153, 255, 255],
+                    1: [184, 185, 230],
+                    2: [241, 217, 198]
+                }
+                grid_colored = np.zeros((grid_rescaled.shape[0], grid_rescaled.shape[1], 3), dtype=np.uint8)
+                for value, color in color_map.items():
+                    grid_colored[grid_rescaled == value] = color
+                if frame.dtype != grid_colored.dtype:
+                    frame = frame.astype(grid_colored.dtype)
+                grid_colored = cv2.addWeighted(frame, 0.5, grid_colored, 0.5, 0)
                 print(f"Saving grid result to {grid_file}")
-                assert cv2.imwrite(grid_file, t*255)
-
+                assert cv2.imwrite(grid_file, grid_colored)
+                    
                 # plot outut_repr
                 if 'output_repr' in policy_meta:
                     output_repr = policy_meta['output_repr'][0]
@@ -295,8 +301,8 @@ def main():
         if not distributed:
             model = MMDataParallel(model, device_ids=[0])
             print('# ----------- warmup ---------- #')
-            # _, _, _ = single_gpu_test(model, data_loader_warmup, False, False, '', args, limit=args.num_clips_warmup)
-            # _, _, _, _ = single_gpu_test(model, data_loader_warmup, dataset, args.show, args.save_img, args.save_img_dir, args, limit=args.num_clips_warmup)
+            # _, _, _, _ = single_gpu_test(model, data_loader_warmup, False, False, '', args, limit=args.num_clips_warmup)
+            _, _, _, _ = single_gpu_test(model, data_loader_warmup, dataset, args.show, args.save_img, args.save_img_dir, args, limit=args.num_clips_warmup)
             
             # sys.exit()
             print('# -----------  eval  ---------- #')

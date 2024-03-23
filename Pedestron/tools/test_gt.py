@@ -2,9 +2,9 @@ import json
  
 def collect_bbox(stage, image_id, min_height=0, min_score=0):
     if stage == 'warmup':
-        f = open('/home/wiser-renjie/projects/blockcopy/Pedestron/results/csp_r50_all_warmup.json')
+        f = open('/home/wiser-renjie/projects/blockcopy/Pedestron/results/csp_r50_wildtrack_c1.json')
     elif stage == 'eval':
-        f = open('/home/wiser-renjie/projects/blockcopy/Pedestron/results/csp_r50_all_eval.json')
+        f = open('/home/wiser-renjie/projects/blockcopy/Pedestron/results/csp_r50_wildtrack_c7.json')
     else:
         raise(NotImplementedError)
     

@@ -6,7 +6,7 @@ from create_video import mkdir_if_missing
 
 if __name__ == '__main__':
     input_root = '/home/wiser-renjie/projects/blockcopy/Pedestron/output'
-    exp_id = 'test'
+    exp_id = 'test2'
     input_path = os.path.join(input_root, exp_id + '_videos')
     output_path = mkdir_if_missing(os.path.join(input_path, 'combined'))
     frame_rate = 2

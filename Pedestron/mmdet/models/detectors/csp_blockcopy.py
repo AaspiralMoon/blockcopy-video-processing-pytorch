@@ -65,6 +65,7 @@ class CSPBlockCopy(CSP):
             out = [[np.hstack((out, np.ones((out.shape[0], 1))))]] # add 1 to each det from CNN           
         else:
             out = [[np.empty((0, 6), dtype=out_CNN[0][0].dtype)]]
+            
         return out
     
     def update_frame_state(self) -> torch.Tensor:       # added
