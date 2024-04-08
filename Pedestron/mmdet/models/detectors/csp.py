@@ -5,6 +5,8 @@ from mmdet.core import bbox2result
 import numpy as np
 import cv2
 
+from blockcopy.utils.profiler import timings
+
 @DETECTORS.register_module
 class CSP(SingleStageDetector):
 
@@ -200,17 +202,18 @@ class CSP(SingleStageDetector):
         return losses
 
     def simple_test(self, img, img_meta, rescale=False):
-        x = self.extract_feat(img)
-        outs = self.bbox_head(x)
-        bbox_inputs = outs + (img_meta, self.test_cfg, rescale)
-        if self.return_feature_maps:
-            return self.bbox_head.get_bboxes_features(*bbox_inputs)
-        bbox_list = self.bbox_head.get_bboxes(*bbox_inputs)
-        bbox_results = [
-            bbox2result(det_bboxes, det_labels, self.bbox_head.num_classes)
-            for det_bboxes, det_labels in bbox_list
-        ]
-        return bbox_results[0]
+        with timings.env('blockcopy/model', 3):
+            x = self.extract_feat(img)
+            outs = self.bbox_head(x)
+            bbox_inputs = outs + (img_meta, self.test_cfg, rescale)
+            if self.return_feature_maps:
+                return self.bbox_head.get_bboxes_features(*bbox_inputs)
+            bbox_list = self.bbox_head.get_bboxes(*bbox_inputs)
+            bbox_results = [
+                bbox2result(det_bboxes, det_labels, self.bbox_head.num_classes)
+                for det_bboxes, det_labels in bbox_list
+            ]
+            return bbox_results[0]
 
     def foward_features(self, features):
         bbox_list = self.bbox_head.get_bboxes(*features)

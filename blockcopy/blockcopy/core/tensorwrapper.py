@@ -570,6 +570,7 @@ class TensorWrapper(torch.Tensor):
         else:
             with timings.env("tensorwrapper/pad_func0", 11):
                 ret = super().__torch_function__(func, types, args, kwargs)
+        
         return ret
 
     def _func_interpolate(self, func, types, args, kwargs):

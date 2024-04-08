@@ -464,6 +464,14 @@ class ResNet(nn.Module):
         self.add_module(self.norm1_name, norm1)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        self.conv2 = build_conv_layer(
+            self.conv_cfg,
+            512,
+            256,
+            kernel_size=3,
+            stride=1,
+            padding=1,
+            bias=False)
 
     def _freeze_stages(self):
         if self.frozen_stages >= 0:
@@ -511,8 +519,14 @@ class ResNet(nn.Module):
         x = self.maxpool(x)
         outs = []
         for i, layer_name in enumerate(self.res_layers):
+            if i >= 2:                                                          # ADD
+                continue
             res_layer = getattr(self, layer_name)
             x = res_layer(x)
+            # print('Layer {}:, size: {}'.format(i, x.shape))       # ADD
+            if i == 1:                                                    
+                x = self.conv2(x)
+            # print('Layer {}:, size: {}'.format(i, x.shape))
             if i in self.out_indices:
                 outs.append(x)
         return tuple(outs)

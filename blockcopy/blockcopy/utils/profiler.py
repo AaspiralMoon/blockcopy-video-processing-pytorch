@@ -58,4 +58,4 @@ class Timings():
         yield
         self.stop(name)
 
-timings = Timings(level=0)
+timings = Timings(level=100)

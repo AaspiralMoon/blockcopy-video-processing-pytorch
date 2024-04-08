@@ -70,7 +70,7 @@ test_cfg = dict(
     max_per_img=100)
 # dataset settings
 dataset_type = 'CocoCSPORIClipDataset'
-data_root = 'datasets/CityPersons'
+data_root = '/home/wiser-renjie/projects/blockcopy/Pedestron/datasets/CityPersons'
 img_root = '/home/wiser-renjie/remote_datasets/cityscapes/leftImg8bit_sequence'
 data_root_vid = ''
 INF = 1e8

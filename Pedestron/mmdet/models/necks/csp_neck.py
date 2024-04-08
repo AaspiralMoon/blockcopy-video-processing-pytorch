@@ -34,15 +34,17 @@ class CSPNeck(nn.Module):
         self.activation = activation
         self.fp16_enabled = False
 
+        self.p2 = nn.ConvTranspose2d(256, 768, kernel_size=4, stride=2, padding=1)           # ADD
         self.p3 = nn.ConvTranspose2d(512, 256, kernel_size=4, stride=2, padding=1)
         self.p4 = nn.ConvTranspose2d(1024, 256, kernel_size=4, stride=4, padding=0)
         self.p5 = nn.ConvTranspose2d(2048, 256, kernel_size=4, stride=4, padding=0)
 
+        self.p2_l2 = L2Norm(768, 10)
         self.p3_l2 = L2Norm(256, 10)
         self.p4_l2 = L2Norm(256, 10)
         self.p5_l2 = L2Norm(256, 10)
-
-
+        
+        self.conv = nn.Conv2d(in_channels=768, out_channels=768, kernel_size=3, stride=1, padding=1)        # ADD 
 
     # default init_weights for conv(msra) and norm in ConvModule
     def init_weights(self):
@@ -66,19 +68,24 @@ class CSPNeck(nn.Module):
 
     @auto_fp16()
     def forward(self, inputs):
-        assert len(inputs) == len(self.in_channels)
+        # assert len(inputs) == len(self.in_channels)
 
-        p3 = self.p3(inputs[0])
-        # self.feature_map_visualization(inputs[0], p3)
-        p3 = self.p3_l2(p3)
+        # p3 = self.p3(inputs[0])
+        # # self.feature_map_visualization(inputs[0], p3)
+        # p3 = self.p3_l2(p3)
 
-        p4 = self.p4(inputs[1])
-        p4 = self.p4_l2(p4)
+        # p4 = self.p4(inputs[1])
+        # p4 = self.p4_l2(p4)
 
-        p5 = self.p5(inputs[2])
-        p5 = self.p5_l2(p5)
+        # p5 = self.p5(inputs[2])
+        # p5 = self.p5_l2(p5)
 
-        cat = torch.cat([p3, p4, p5], dim=1)
+        # cat = torch.cat([p3, p4, p5], dim=1)
+        
+        p2 = self.p2(inputs[0])
+        p2 = self.p2_l2(p2)
+        cat = torch.cat([p2], dim=1)
+        # cat = self.conv(cat)
         outs=[cat]
         return tuple(outs)
 
