@@ -178,7 +178,8 @@ class CSP(SingleStageDetector):
                       gt_bboxes_ignore=None,
                       classification_maps=None,
                       scale_maps=None,
-                      offset_maps=None):
+                      offset_maps=None,
+                      teacher_feat=None):
         # for tracking data which batch is produced by dataset instead of data loader
         if type(img) == list:
             img=img[0]
@@ -190,7 +191,11 @@ class CSP(SingleStageDetector):
             scale_maps = scale_maps[0]
             offset_maps = offset_maps[0]
 
-        x = self.extract_feat(img)
+        gen_feat = teacher_feat is not None
+        if gen_feat:
+            x, student_feat = self.extract_feat(img, gen_feat)
+        else:
+            x = self.extract_feat(img, gen_feat)
         # self.show_input_debug(img, classification_maps, scale_maps, offset_maps)
         # self.show_input_debug_caltech(img, classification_maps, scale_maps, offset_maps)
         # self.show_mot_input_debug(img, classification_maps, scale_maps, offset_maps)
@@ -198,7 +203,7 @@ class CSP(SingleStageDetector):
         outs = self.bbox_head(x)
         loss_inputs = outs + (gt_bboxes, gt_labels, classification_maps, scale_maps, offset_maps, img_metas, self.train_cfg)
         losses = self.bbox_head.loss(
-            *loss_inputs, gt_bboxes_ignore=gt_bboxes_ignore)
+            *loss_inputs, gt_bboxes_ignore=gt_bboxes_ignore, teacher_feat=teacher_feat, student_feat=student_feat)
         return losses
 
     def simple_test(self, img, img_meta, rescale=False):

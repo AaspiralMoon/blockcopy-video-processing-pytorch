@@ -36,11 +36,15 @@ class SingleStageDetector(BaseDetector):
                 self.neck.init_weights()
         self.bbox_head.init_weights()
 
-    def extract_feat(self, img):
+    def extract_feat(self, img, gen_feat=False):
         x = self.backbone(img)
         if self.with_neck:
-            x = self.neck(x)
+            if gen_feat:
+                x, feat = self.neck(x, gen_feat)
+                return x, feat
+            x = self.neck(x, gen_feat)
         return x
+
 
     def forward_train(self,
                       img,

@@ -39,7 +39,7 @@ class CSPNeck(nn.Module):
         self.p4 = nn.ConvTranspose2d(1024, 256, kernel_size=4, stride=4, padding=0)
         self.p5 = nn.ConvTranspose2d(2048, 256, kernel_size=4, stride=4, padding=0)
 
-        self.p2_l2 = L2Norm(768, 10)
+        self.p2_l2 = L2Norm(768, 10)                # ADD
         self.p3_l2 = L2Norm(256, 10)
         self.p4_l2 = L2Norm(256, 10)
         self.p5_l2 = L2Norm(256, 10)
@@ -67,7 +67,7 @@ class CSPNeck(nn.Module):
         cv2.waitKey(0)
 
     @auto_fp16()
-    def forward(self, inputs):
+    def forward(self, inputs, gen_feat=False):
         # assert len(inputs) == len(self.in_channels)
 
         # p3 = self.p3(inputs[0])
@@ -85,9 +85,13 @@ class CSPNeck(nn.Module):
         p2 = self.p2(inputs[0])
         p2 = self.p2_l2(p2)
         cat = torch.cat([p2], dim=1)
-        # cat = self.conv(cat)
+        cat = self.conv(cat)
         outs=[cat]
-        return tuple(outs)
+        
+        if gen_feat:
+            return tuple(outs), cat
+        else:
+            return tuple(outs)
 
 class L2Norm(nn.Module):
     def __init__(self, n_channels, scale):

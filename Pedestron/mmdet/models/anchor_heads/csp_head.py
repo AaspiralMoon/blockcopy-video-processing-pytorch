@@ -163,7 +163,9 @@ class CSPHead(nn.Module):
              offset_maps,
              img_metas,
              cfg,
-             gt_bboxes_ignore=None):
+             gt_bboxes_ignore=None,
+             teacher_feat=None,
+             student_feat=None):
         assert len(cls_scores) == len(bbox_preds) == len(offset_preds)
         cls_maps = self.concat_batch_gts(classification_maps)
         bbox_gts = self.concat_batch_gts(scale_maps)
