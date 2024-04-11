@@ -35,6 +35,7 @@ class CSPHead(nn.Module):
                      type='CrossEntropyLoss',
                      use_sigmoid=True,
                      loss_weight=1.0),
+                 loss_ts=dict(type='MSELoss', loss_weight=1.0),
                  conv_cfg=None,
                  norm_cfg=dict(type='GN', num_groups=32, requires_grad=True),
                  predict_width=False):
@@ -53,9 +54,11 @@ class CSPHead(nn.Module):
         else:
             self.loss_bbox = reg_hw_pos()
         self.loss_offset = offset_pos()
+        self.loss_ts = ts_feat()                         # ADD
         self.loss_cls_weight = loss_cls.loss_weight
         self.loss_bbox_weight = loss_bbox.loss_weight
         self.loss_offset_weight = loss_offset.loss_weight
+        self.loss_ts_weight = loss_ts.loss_weight                   # ADD
         self.conv_cfg = conv_cfg
         self.norm_cfg = norm_cfg
         self.fp16_enabled = False
@@ -190,10 +193,14 @@ class CSPHead(nn.Module):
         # loss_offset = torch.stack(loss_offset).mean() * self.loss_offset_weight
         loss_offset = loss_offset[0] * self.loss_offset_weight
         # print(loss_cls, loss_bbox, loss_offset)
+        
+        loss_ts = self.loss_ts(teacher_feat, student_feat)
+        loss_ts = loss_ts * self.loss_ts_weight
         return dict(
             loss_cls=loss_cls,
             loss_bbox=loss_bbox,
-            loss_offset=loss_offset)
+            loss_offset=loss_offset,
+            loss_ts=loss_ts)
 
     @force_fp32(apply_to=('cls_scores', 'bbox_preds', 'offset_preds'))
     def get_bboxes(self,
@@ -416,3 +423,13 @@ class offset_pos(nn.Module):
 
         off_loss = torch.sum(l1_loss) / max(1.0, torch.sum(offset_label[:, 2, :, :]))
         return off_loss
+
+class ts_feat(nn.Module):                                  # ADD
+    def __init__(self):
+        super(ts_feat, self).__init__()
+        self.MSE = nn.MSELoss(reduction='mean')
+
+    def forward(self, teacher_feat, student_feat):
+        ts_loss = self.MSE(teacher_feat, student_feat)
+        
+        return ts_loss
